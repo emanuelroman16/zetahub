@@ -1,0 +1,1734 @@
+<meta charset="UTF-8">
+<title>Zeta Hub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Public+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#eef0f3;
+    --surface:#ffffff;
+    --surface-2:#e7ebef;
+    --ink:#182028;
+    --ink-soft:#5a6470;
+    --ink-faint:#89919b;
+    --border:#d6dbe1;
+    --navy:#26364d;
+    --navy-strong:#131c2a;
+    --on-navy:#eef1f5;
+    --chrome:#8fc4ee;
+    --accent:#2f6fb0;
+    --accent-strong:#1f4e80;
+    --accent-soft:#e3edf7;
+    --success:#2f7a4f;
+    --success-soft:#e2f0e4;
+    --warning:#a5651f;
+    --warning-soft:#f6ead4;
+    --danger:#ab3434;
+    --danger-soft:#f7e1e1;
+    --cat-general:#2f6fb0; --cat-general-soft:#e3edf7;
+    --cat-capitular:#6a4c93; --cat-capitular-soft:#efe8f6;
+    --cat-directiva:#55606b; --cat-directiva-soft:#e7eaec;
+    --cat-cen:#7a3b56; --cat-cen-soft:#f5e6ec;
+    --cat-social:#b5652a; --cat-social-soft:#f7e9dc;
+    --cat-civica:#2f8f7a; --cat-civica-soft:#e1f2ee;
+    --radius-lg:16px;
+    --radius-md:11px;
+    --radius-sm:8px;
+    --font-display:'Archivo', 'Segoe UI', sans-serif;
+    --font-body:'Public Sans', -apple-system, 'Segoe UI', sans-serif;
+    --font-mono:'IBM Plex Mono', ui-monospace, monospace;
+    --shadow-card:0 1px 2px rgba(20,26,33,.06), 0 8px 20px -12px rgba(20,26,33,.16);
+    --shadow-pop:0 20px 50px -20px rgba(10,14,18,.4);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#0b0e12;
+      --surface:#151a20;
+      --surface-2:#1c222a;
+      --ink:#eceef1;
+      --ink-soft:#a2aab5;
+      --ink-faint:#6c7480;
+      --border:#293138;
+      --navy:#3d5678;
+      --navy-strong:#182231;
+      --on-navy:#eef1f5;
+      --chrome:#9fd0f5;
+      --accent:#4381c4;
+      --accent-strong:#bcdcf5;
+      --accent-soft:#17293b;
+      --success:#5fbd86;
+      --success-soft:#173322;
+      --warning:#e0973f;
+      --warning-soft:#332410;
+      --danger:#e2707a;
+      --danger-soft:#381a1e;
+      --cat-general:#6fa8dc; --cat-general-soft:#17293b;
+      --cat-capitular:#b79bdb; --cat-capitular-soft:#2a2138;
+      --cat-directiva:#9aa6b3; --cat-directiva-soft:#232830;
+      --cat-cen:#d190ac; --cat-cen-soft:#33202a;
+      --cat-social:#e0a35e; --cat-social-soft:#34260f;
+      --cat-civica:#6dd0bb; --cat-civica-soft:#123330;
+      --shadow-card:0 1px 2px rgba(0,0,0,.3), 0 12px 24px -14px rgba(0,0,0,.6);
+      --shadow-pop:0 20px 60px -20px rgba(0,0,0,.8);
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#0b0e12;
+    --surface:#151a20;
+    --surface-2:#1c222a;
+    --ink:#eceef1;
+    --ink-soft:#a2aab5;
+    --ink-faint:#6c7480;
+    --border:#293138;
+    --navy:#3d5678;
+    --navy-strong:#182231;
+    --on-navy:#eef1f5;
+    --chrome:#9fd0f5;
+    --accent:#4381c4;
+    --accent-strong:#bcdcf5;
+    --accent-soft:#17293b;
+    --success:#5fbd86;
+    --success-soft:#173322;
+    --warning:#e0973f;
+    --warning-soft:#332410;
+    --danger:#e2707a;
+    --danger-soft:#381a1e;
+    --cat-general:#6fa8dc; --cat-general-soft:#17293b;
+    --cat-capitular:#b79bdb; --cat-capitular-soft:#2a2138;
+    --cat-directiva:#9aa6b3; --cat-directiva-soft:#232830;
+    --cat-cen:#d190ac; --cat-cen-soft:#33202a;
+    --cat-social:#e0a35e; --cat-social-soft:#34260f;
+    --cat-civica:#6dd0bb; --cat-civica-soft:#123330;
+    --shadow-card:0 1px 2px rgba(0,0,0,.3), 0 12px 24px -14px rgba(0,0,0,.6);
+    --shadow-pop:0 20px 60px -20px rgba(0,0,0,.8);
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:var(--font-body);
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    -webkit-font-smoothing:antialiased;
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:.001ms !important; transition-duration:.001ms !important;}
+  }
+
+  .frame{
+    width:100%;
+    max-width:460px;
+    min-height:100vh;
+    background:var(--surface);
+    display:flex;
+    flex-direction:column;
+    position:relative;
+    box-shadow:var(--shadow-pop);
+  }
+  @media (min-width:560px){
+    body{padding:28px 12px;}
+    .frame{min-height:calc(100vh - 56px); border-radius:28px; overflow:hidden; border:1px solid var(--border);}
+  }
+  /* Computadoras / pantallas anchas: más aire, sin dejar de sentirse "app" */
+  @media (min-width:900px){
+    .frame{max-width:640px;}
+  }
+  @media (min-width:1300px){
+    .frame{max-width:720px;}
+  }
+
+  /* ---------- Topbar ---------- */
+  .topbar{
+    display:flex;align-items:center;gap:10px;
+    padding:16px 18px 14px;
+    background:linear-gradient(115deg, var(--navy-strong) 0%, var(--navy) 45%, var(--navy-strong) 100%);
+    color:var(--on-navy);
+    flex-shrink:0;
+    position:relative;
+    overflow:hidden;
+  }
+  .topbar::after{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background:linear-gradient(120deg, rgba(255,255,255,.16) 0%, rgba(255,255,255,0) 26%, rgba(255,255,255,.05) 48%, rgba(255,255,255,0) 100%);
+  }
+  .crest{
+    width:38px;height:38px;border-radius:50%;
+    background:linear-gradient(150deg, #d7dee5 0%, #9aa6b2 45%, #64707c 100%);
+    color:#141c26;
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--font-display);
+    font-weight:700;font-size:.78rem;letter-spacing:.01em;
+    border:1px solid rgba(255,255,255,.5);
+    box-shadow:inset 0 1px 1px rgba(255,255,255,.6), inset 0 -2px 3px rgba(0,0,0,.25);
+    flex-shrink:0;position:relative;z-index:1;
+  }
+  .brand{display:flex;flex-direction:column;line-height:1.15;flex:1;min-width:0;position:relative;z-index:1;}
+  .brand-name{font-family:var(--font-display);font-weight:700;font-size:1.05rem;letter-spacing:.01em;}
+  .brand-sub{font-size:.72rem;color:rgba(238,241,245,.65);text-transform:uppercase;letter-spacing:.08em;}
+  /* ---------- View / layout ---------- */
+  .view{
+    flex:1;
+    overflow-y:auto;
+    padding:16px 16px calc(24px + env(safe-area-inset-bottom));
+    display:flex;flex-direction:column;gap:14px;
+  }
+  .view::-webkit-scrollbar{width:0;}
+
+  .eyebrow{
+    font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.09em;
+    color:var(--ink-faint);
+  }
+  h1.page-title{
+    font-family:var(--font-display);font-weight:600;font-size:1.5rem;margin:0;
+    text-wrap:balance;
+  }
+  p.lede{color:var(--ink-soft);font-size:.9rem;margin:0;line-height:1.5;}
+
+  .card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius-lg);
+    padding:16px;
+    box-shadow:var(--shadow-card);
+  }
+  .card-flat{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-md);padding:14px;}
+
+  .btn{
+    font-family:var(--font-body);
+    font-weight:700;font-size:.85rem;
+    border-radius:999px;
+    padding:11px 18px;
+    border:1px solid transparent;
+    cursor:pointer;
+    display:inline-flex;align-items:center;justify-content:center;gap:6px;
+    transition:transform .08s ease, opacity .15s ease;
+  }
+  .btn:active{transform:scale(.97);}
+  .btn:focus-visible{outline:2px solid var(--accent-strong);outline-offset:2px;}
+  .btn-primary{background:linear-gradient(180deg, var(--navy) 0%, var(--navy-strong) 100%);color:var(--on-navy);border-color:rgba(255,255,255,.08);}
+  .btn-accent{background:linear-gradient(180deg, var(--accent) 0%, var(--navy-strong) 160%);color:var(--on-navy);}
+  .btn-ghost{background:transparent;color:var(--ink);border-color:var(--border);}
+  .btn-danger-line{background:transparent;color:var(--danger);border-color:var(--danger-soft);}
+  .btn-block{width:100%;}
+  .btn-sm{padding:7px 12px;font-size:.76rem;border-radius:999px;}
+  .btn[disabled]{opacity:.45;cursor:not-allowed;}
+
+  .chip{
+    display:inline-flex;align-items:center;gap:5px;
+    font-size:.7rem;font-weight:700;letter-spacing:.02em;
+    padding:4px 10px;border-radius:999px;white-space:nowrap;
+  }
+  .chip-success{background:var(--success-soft);color:var(--success);}
+  .chip-warning{background:var(--warning-soft);color:var(--warning);}
+  .chip-danger{background:var(--danger-soft);color:var(--danger);}
+  .chip-neutral{background:var(--surface-2);color:var(--ink-soft);border:1px solid var(--border);}
+  .chip-accent{background:var(--accent-soft);color:var(--accent-strong);}
+
+  .row{display:flex;align-items:center;gap:10px;}
+  .row-between{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .col{display:flex;flex-direction:column;gap:2px;min-width:0;}
+  .stack{display:flex;flex-direction:column;gap:10px;}
+  .truncate{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+  /* next-activity hero */
+  .hero-activity{
+    background:linear-gradient(160deg, var(--navy) 0%, var(--navy-strong) 100%);
+    color:var(--on-navy);
+    border-radius:var(--radius-lg);
+    padding:18px;
+    position:relative;
+    overflow:hidden;
+  }
+  .hero-activity::after{
+    content:"";position:absolute;right:-30px;top:-30px;width:150px;height:150px;border-radius:50%;
+    background:radial-gradient(circle, rgba(143,196,238,.28), transparent 70%);
+    pointer-events:none;
+  }
+  .hero-activity::before{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background:linear-gradient(125deg, rgba(255,255,255,.14) 0%, rgba(255,255,255,0) 30%, rgba(255,255,255,.04) 55%, rgba(255,255,255,0) 100%);
+  }
+  .hero-date{
+    font-family:var(--font-mono);font-size:.72rem;letter-spacing:.06em;
+    color:var(--chrome);text-transform:uppercase;font-weight:600;position:relative;
+  }
+  .hero-title{font-family:var(--font-display);font-size:1.3rem;font-weight:700;margin:4px 0 2px;text-wrap:balance;position:relative;}
+  .hero-meta{font-size:.8rem;color:rgba(238,241,245,.7);position:relative;}
+  .rsvp-actions{display:flex;gap:8px;margin-top:14px;position:relative;}
+
+  .list-item{
+    display:flex;align-items:center;gap:12px;
+    padding:12px 4px;
+    border-bottom:1px solid var(--border);
+    cursor:pointer;
+  }
+  .list-item:last-child{border-bottom:none;}
+  .list-item:active{opacity:.7;}
+  .list-thumb{
+    width:44px;height:44px;border-radius:var(--radius-sm);
+    background:var(--surface-2);border:1px solid var(--border);
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--font-mono);font-size:.65rem;font-weight:600;color:var(--ink-soft);
+    flex-shrink:0;text-align:center;line-height:1.1;
+  }
+  .list-title{font-weight:700;font-size:.92rem;}
+  .list-sub{font-size:.78rem;color:var(--ink-soft);}
+  .chevron{color:var(--ink-faint);flex-shrink:0;}
+
+  .section-head{display:flex;align-items:baseline;justify-content:space-between;margin-top:4px;}
+  .section-head h2{font-family:var(--font-display);font-size:1.05rem;font-weight:600;margin:0;}
+  .link-btn{background:none;border:none;color:var(--accent-strong);font-weight:700;font-size:.78rem;cursor:pointer;padding:4px;}
+
+  .shop-strip{display:flex;gap:10px;overflow-x:auto;padding-bottom:2px;margin:0 -2px;}
+  .shop-strip::-webkit-scrollbar{display:none;}
+  .shop-strip-item{
+    flex-shrink:0;width:112px;
+    background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);
+    padding:10px;cursor:pointer;text-align:left;font-family:var(--font-body);
+    box-shadow:var(--shadow-card);
+    display:flex;flex-direction:column;gap:6px;
+  }
+  .shop-strip-item:active{opacity:.75;}
+  .shop-strip-thumb{
+    width:100%;aspect-ratio:1.3;border-radius:var(--radius-sm);
+    background:linear-gradient(150deg, var(--surface-2) 0%, var(--border) 100%);
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--font-mono);font-size:.7rem;font-weight:600;color:var(--ink-soft);
+  }
+  .shop-strip-name{font-size:.76rem;font-weight:700;line-height:1.25;color:var(--ink);}
+  .shop-strip-price{font-family:var(--font-mono);font-size:.76rem;color:var(--accent-strong);font-weight:600;}
+
+  .segmented{display:flex;background:var(--surface-2);border:1px solid var(--border);border-radius:999px;padding:3px;gap:2px;}
+  .segmented button{
+    flex:1;border:none;background:none;padding:8px 6px;border-radius:999px;
+    font-weight:700;font-size:.78rem;color:var(--ink-soft);cursor:pointer;font-family:var(--font-body);
+  }
+  .segmented button.active{background:var(--navy);color:var(--on-navy);}
+
+  .field{display:flex;flex-direction:column;gap:6px;}
+  .field label{font-size:.76rem;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.04em;}
+  .input, select.input{
+    font-family:var(--font-body);font-size:.92rem;
+    padding:11px 13px;border-radius:var(--radius-sm);
+    border:1.5px solid var(--border);background:var(--surface);color:var(--ink);
+    width:100%;
+  }
+  .input:focus{outline:none;border-color:var(--navy);}
+  .input-pin{font-family:var(--font-mono);letter-spacing:.5em;text-align:center;font-size:1.3rem;font-weight:600;}
+  .error-text{color:var(--danger);font-size:.78rem;font-weight:600;}
+  .hint-text{color:var(--ink-faint);font-size:.76rem;}
+  textarea.input{resize:vertical;min-height:70px;font-family:var(--font-body);}
+
+  /* ---------- Tabbar (arriba, debajo del topbar, siempre visible) ---------- */
+  .tabbar{
+    display:flex;
+    background:var(--surface);
+    border-bottom:1px solid var(--border);
+    padding:6px 4px;
+    flex-shrink:0;
+  }
+  .tab-btn{
+    flex:1;background:none;border:none;cursor:pointer;
+    display:flex;flex-direction:column;align-items:center;gap:3px;
+    padding:8px 2px;color:var(--ink-faint);
+    font-family:var(--font-body);font-size:.66rem;font-weight:700;
+  }
+  .tab-btn svg{width:21px;height:21px;}
+  .tab-btn.active{color:var(--accent-strong);}
+
+  /* ---------- Modal ---------- */
+  .modal-backdrop{
+    position:fixed;inset:0;background:rgba(10,10,8,.55);
+    display:flex;align-items:flex-end;justify-content:center;z-index:50;
+    padding:0;
+  }
+  @media (min-width:560px){.modal-backdrop{align-items:center;}}
+  .modal{
+    background:var(--surface);width:100%;max-width:460px;
+    border-radius:22px 22px 0 0;
+    padding:20px 18px calc(20px + env(safe-area-inset-bottom));
+    box-shadow:var(--shadow-pop);
+    max-height:88vh;overflow-y:auto;
+  }
+  @media (min-width:560px){.modal{border-radius:20px;}}
+  .modal-handle{width:38px;height:4px;background:var(--border);border-radius:99px;margin:0 auto 14px;}
+  .modal h3{font-family:var(--font-display);font-size:1.15rem;margin:0 0 4px;}
+
+  /* ---------- Admin ---------- */
+  .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .stat-card{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-md);padding:12px;}
+  .stat-num{font-family:var(--font-mono);font-size:1.35rem;font-weight:600;font-variant-numeric:tabular-nums;}
+  .stat-label{font-size:.72rem;color:var(--ink-soft);font-weight:600;}
+  .admin-tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;}
+  .admin-tabs::-webkit-scrollbar{display:none;}
+  .admin-tab-btn{
+    flex-shrink:0;border:1px solid var(--border);background:var(--surface);color:var(--ink-soft);
+    padding:8px 13px;border-radius:999px;font-size:.78rem;font-weight:700;cursor:pointer;font-family:var(--font-body);
+  }
+  .admin-tab-btn.active{background:var(--navy);border-color:var(--navy);color:var(--on-navy);}
+  .table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius-md);}
+  table{width:100%;border-collapse:collapse;font-size:.8rem;min-width:480px;}
+  thead th{
+    text-align:left;background:var(--surface-2);color:var(--ink-soft);
+    font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;font-weight:700;
+    padding:10px 12px;border-bottom:1px solid var(--border);white-space:nowrap;
+  }
+  tbody td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:middle;}
+  tbody tr:last-child td{border-bottom:none;}
+  td.num, th.num{text-align:right;font-family:var(--font-mono);font-variant-numeric:tabular-nums;}
+
+  .banner{
+    display:flex;gap:10px;align-items:flex-start;
+    background:var(--accent-soft);border:1px solid var(--accent);color:var(--accent-strong);
+    border-radius:var(--radius-md);padding:12px 13px;font-size:.82rem;line-height:1.4;
+  }
+  .banner strong{color:inherit;}
+
+  .empty-state{text-align:center;padding:30px 10px;color:var(--ink-faint);}
+  .divider{height:1px;background:var(--border);margin:2px 0;}
+
+  /* ---------- Categorías ---------- */
+  .cat-dot{display:inline-block;width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+  .cat-chip{display:inline-flex;align-items:center;gap:5px;font-size:.68rem;font-weight:700;padding:3px 9px 3px 7px;border-radius:999px;white-space:nowrap;}
+  .check-row{display:flex;align-items:center;gap:7px;font-size:.82rem;font-weight:600;color:var(--ink);}
+  .check-row input{width:16px;height:16px;accent-color:var(--accent);}
+
+  /* ---------- Calendario ---------- */
+  .cal-header{display:flex;align-items:center;justify-content:space-between;}
+  .cal-month-label{font-family:var(--font-display);font-weight:700;font-size:.98rem;text-transform:capitalize;}
+  .cal-nav-btn{
+    width:30px;height:30px;border-radius:50%;border:1px solid var(--border);background:var(--surface);
+    display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--ink-soft);flex-shrink:0;
+  }
+  .cal-nav-btn:active{opacity:.7;}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
+  .cal-dow{font-size:.6rem;font-weight:700;text-transform:uppercase;color:var(--ink-faint);text-align:center;padding-bottom:3px;}
+  .cal-cell{
+    aspect-ratio:1;border-radius:9px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+    font-size:.74rem;color:var(--ink);cursor:default;background:var(--surface-2);border:1px solid transparent;
+  }
+  .cal-cell.other-month{color:var(--ink-faint);opacity:.35;background:transparent;}
+  .cal-cell.today{border-color:var(--accent);font-weight:800;color:var(--accent-strong);}
+  .cal-cell.has-event{cursor:pointer;}
+  .cal-cell.has-event:active{opacity:.6;}
+  .cal-dots{display:flex;gap:2px;justify-content:center;flex-wrap:wrap;max-width:20px;}
+  .cal-dot-mini{width:5px;height:5px;border-radius:50%;}
+
+  /* ---------- Splash ---------- */
+  #splash{
+    position:fixed;inset:0;z-index:100;
+    background:linear-gradient(150deg, var(--navy-strong) 0%, var(--navy) 55%, var(--navy-strong) 100%);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;
+    opacity:1;transition:opacity .5s ease;cursor:pointer;
+  }
+  #splash.hide{opacity:0;pointer-events:none;}
+  #splash .splash-crest{
+    width:60px;height:60px;border-radius:50%;
+    background:linear-gradient(150deg, #d7dee5 0%, #9aa6b2 45%, #64707c 100%);
+    color:#141c26;display:flex;align-items:center;justify-content:center;
+    font-family:var(--font-display);font-weight:700;font-size:1.15rem;
+    border:1px solid rgba(255,255,255,.5);
+    box-shadow:inset 0 1px 1px rgba(255,255,255,.6), inset 0 -3px 5px rgba(0,0,0,.25);
+    animation:splash-pop .6s cubic-bezier(.34,1.56,.64,1) both;
+  }
+  #splash .splash-text{
+    color:var(--on-navy);font-family:var(--font-display);font-weight:700;font-size:1.2rem;
+    letter-spacing:.01em;opacity:0;animation:splash-fade .5s ease .22s forwards;
+  }
+  #splash .splash-sub{
+    color:var(--chrome);font-size:.7rem;text-transform:uppercase;letter-spacing:.12em;font-weight:700;
+    opacity:0;animation:splash-fade .5s ease .38s forwards;
+  }
+  @keyframes splash-pop{0%{transform:scale(.4);opacity:0;}100%{transform:scale(1);opacity:1;}}
+  @keyframes splash-fade{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
+  @media (prefers-reduced-motion: reduce){
+    #splash .splash-crest, #splash .splash-text, #splash .splash-sub{animation:none;opacity:1;transform:none;}
+  }
+</style>
+
+<div id="splash" onclick="dismissSplash()">
+  <div class="splash-crest">ΦΣΑ</div>
+  <div class="splash-text">Bienvenido a Zeta Hub</div>
+  <div class="splash-sub">Phi Sigma Alpha · Capítulo Zeta</div>
+</div>
+<div class="frame" id="app"></div>
+<div id="modal-root"></div>
+
+<script>
+/* ============ Datos de prueba (mock) ============ */
+const NOW = new Date();
+
+/* ============ Supabase (backend real) ============ */
+const SUPABASE_URL = 'https://jxspulzybmcpkwklrrfs.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_Ee1xJc7qOXaTdijNlw6Oxg_za0-J67g';
+
+async function sb(path, opts={}){
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    ...opts,
+    headers: {
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      'Content-Type': 'application/json',
+      ...(opts.headers||{}),
+    },
+  });
+  if(!res.ok){
+    let errText = res.statusText;
+    try{ errText = await res.text(); }catch(e){}
+    throw new Error(`Supabase ${res.status}: ${errText}`);
+  }
+  if(res.status===204) return null;
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
+}
+function sbRpc(fn, args={}){
+  return sb(`rpc/${fn}`, {method:'POST', body: JSON.stringify(args)});
+}
+function todayISO(){ return new Date().toISOString().slice(0,10); }
+
+/* MEMBERS, ACTIVITIES, SHOP_ITEMS y DOCS arrancan vacíos y se llenan
+   con loadFromSupabase() al abrir la app — ver más abajo. */
+const MEMBERS = [];
+
+const CATS = {
+  general:   {label:'Reunión General',            color:'--cat-general',   soft:'--cat-general-soft'},
+  capitular: {label:'Reunión Capitular',           color:'--cat-capitular', soft:'--cat-capitular-soft'},
+  directiva: {label:'Reunión de Directiva',        color:'--cat-directiva', soft:'--cat-directiva-soft'},
+  cen:       {label:'Comité Ejecutivo Central',    color:'--cat-cen',       soft:'--cat-cen-soft'},
+  social:    {label:'Social',                      color:'--cat-social',    soft:'--cat-social-soft'},
+  civica:    {label:'Servicio Comunitario',         color:'--cat-civica',   soft:'--cat-civica-soft'},
+};
+
+/* Los eventos, la tienda y los documentos viven en Supabase — se cargan
+   con loadFromSupabase() al abrir la app. Estos arrays quedan vacíos
+   aquí y se llenan por referencia (push), nunca se reasignan, para que
+   el resto del código que ya los usa no tenga que cambiar. */
+const ACTIVITIES = [];
+const SHOP_ITEMS = [];
+const DOCS = [];
+
+function pad2(n){ return n<10 ? '0'+n : ''+n; }
+
+/* ---- Mapeo filas de Supabase (snake_case) -> forma que usa la UI ---- */
+function mapActivityRow(r){
+  return {
+    id:r.id, title:r.title, date:r.date, place:r.location||'Por confirmar',
+    desc:r.description||'', category:r.category, isPublic:!!r.is_public,
+    requiresTicket:!!r.requires_ticket, price:Number(r.price)||0,
+    proposed:!!r.proposed, rsvps:{},
+  };
+}
+function applyActivityRow(target, r){
+  target.title=r.title; target.date=r.date; target.place=r.location||'Por confirmar';
+  target.desc=r.description||''; target.category=r.category; target.isPublic=!!r.is_public;
+  target.requiresTicket=!!r.requires_ticket; target.price=Number(r.price)||0; target.proposed=!!r.proposed;
+}
+function mapShopRow(r){
+  return {id:r.id, name:r.name, price:Number(r.price)||0, sizes:null, blurb:r.description||''};
+}
+function mapDocRow(r){
+  return {id:r.id, cat:r.category, name:r.title, date:null, restricted:!!r.restricted};
+}
+
+/* ============ Estado (caché local — la fuente real es Supabase) ============ */
+const state = {
+  route:'events',
+  selectedActivity:null,
+  selectedProduct:null,
+  currentMemberId:null,
+  adminAuthed:false,
+  adminTab:'eventos',
+  adminActivity:null,
+  eventsView:'lista',
+  calendarMonth:new Date(NOW.getFullYear(), NOW.getMonth(), 1),
+  purchases:[],
+  tickets:[],
+  publicTickets:[],
+  fineOverrides:{}, // key `${activityId}:${memberId}` -> 'pagada' | 'exonerada'
+  loading:true,
+  loadError:null,
+};
+
+/* ---- Carga inicial (y recarga) de datos reales desde Supabase ---- */
+async function loadFromSupabase(){
+  state.loading = true; state.loadError = null; render();
+  try{
+    const [acts, mems, shop, docs, rsvps, fines, purchases, tickets, publicTickets] = await Promise.all([
+      sb('activities?select=*&order=date.asc'),
+      sbRpc('list_members'),
+      sb('shop_items?select=*'),
+      sb('docs?select=*'),
+      sb('rsvps?select=*'),
+      sb('fines?select=*'),
+      sb('purchases?select=*&order=created_at.desc'),
+      sb('tickets?select=*&order=created_at.desc'),
+      sb('public_tickets?select=*&order=created_at.desc'),
+    ]);
+
+    ACTIVITIES.length = 0; (acts||[]).forEach(r=>ACTIVITIES.push(mapActivityRow(r)));
+    MEMBERS.length = 0; (mems||[]).forEach(r=>MEMBERS.push(r));
+    SHOP_ITEMS.length = 0; (shop||[]).forEach(r=>SHOP_ITEMS.push(mapShopRow(r)));
+    DOCS.length = 0; (docs||[]).forEach(r=>DOCS.push(mapDocRow(r)));
+
+    (rsvps||[]).forEach(r=>{
+      const a = byId(ACTIVITIES, r.activity_id);
+      if(a) a.rsvps[r.member_id] = {status:r.status, excuse:r.excuse||''};
+    });
+    state.fineOverrides = {};
+    (fines||[]).forEach(r=>{ state.fineOverrides[`${r.activity_id}:${r.member_id}`] = r.status; });
+
+    state.purchases.length = 0;
+    (purchases||[]).forEach(r=>{
+      const item = byId(SHOP_ITEMS, r.item_id);
+      state.purchases.push({
+        id:r.id, memberId:r.member_id, kind:'tienda', item: item?item.name:'(producto eliminado)',
+        detail:'—', qty:r.qty, total:r.qty*(item?item.price:0), method:'—',
+        status:r.status, date:(r.created_at||'').slice(0,10),
+      });
+    });
+    state.tickets.length = 0;
+    (tickets||[]).forEach(r=>{
+      const act = byId(ACTIVITIES, r.activity_id);
+      state.tickets.push({
+        id:r.id, memberId:r.member_id, activityId:r.activity_id, qty:r.qty,
+        total:r.qty*(act?act.price:0), method:'—', status:r.status, date:(r.created_at||'').slice(0,10),
+      });
+    });
+    state.publicTickets.length = 0;
+    (publicTickets||[]).forEach(r=>{
+      const act = byId(ACTIVITIES, r.activity_id);
+      state.publicTickets.push({
+        id:r.id, guestName:r.guest_name, guestContact:r.guest_contact, activityId:r.activity_id,
+        qty:r.qty, total:r.qty*(act?act.price:0), method:'—', status:r.status, date:(r.created_at||'').slice(0,10),
+      });
+    });
+  }catch(err){
+    console.error('Error cargando Zeta Hub desde Supabase:', err);
+    state.loadError = err.message || 'No se pudo conectar con el servidor.';
+  }
+  state.loading = false;
+  render();
+}
+
+let modalStack = [];
+
+/* ============ Utilidades ============ */
+function byId(arr,id){return arr.find(x=>x.id===id);}
+function member(id){return MEMBERS.find(m=>m.id===id);}
+function firstName(name){return name.split(' ')[0];}
+function money(n){return '$' + n.toFixed(2);}
+function fmtDateLong(iso){
+  const d = new Date(iso);
+  return d.toLocaleDateString('es-PR', {weekday:'long', day:'numeric', month:'long'}) + ' · ' +
+         d.toLocaleTimeString('es-PR', {hour:'numeric', minute:'2-digit'});
+}
+function fmtDateShort(iso){
+  const d = new Date(iso);
+  return d.toLocaleDateString('es-PR', {day:'numeric', month:'short'});
+}
+function isPast(iso){ return new Date(iso).getTime() < NOW.getTime(); }
+function upcomingActivities(){ return ACTIVITIES.filter(a=>!isPast(a.date)).sort((a,b)=> new Date(a.date)-new Date(b.date)); }
+function pastActivities(){ return ACTIVITIES.filter(a=>isPast(a.date)).sort((a,b)=> new Date(b.date)-new Date(a.date)); }
+function nextActivity(){ return upcomingActivities()[0] || null; }
+
+function catChip(catKey){
+  const c = CATS[catKey] || CATS.general;
+  return `<span class="cat-chip" style="background:var(${c.soft});color:var(${c.color});"><span class="cat-dot" style="background:var(${c.color});"></span>${c.label}</span>`;
+}
+function sameDay(d1,d2){ return d1.getFullYear()===d2.getFullYear() && d1.getMonth()===d2.getMonth() && d1.getDate()===d2.getDate(); }
+function buildCalendarDays(monthDate){
+  const year = monthDate.getFullYear(), month = monthDate.getMonth();
+  const startWeekday = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  const daysInPrevMonth = new Date(year, month, 0).getDate();
+  const cells = [];
+  for(let i=startWeekday-1;i>=0;i--){ cells.push({other:true, date:new Date(year, month-1, daysInPrevMonth-i)}); }
+  for(let d=1; d<=daysInMonth; d++){ cells.push({other:false, date:new Date(year, month, d)}); }
+  let nextDay = 1;
+  while(cells.length % 7 !== 0){ cells.push({other:true, date:new Date(year, month+1, nextDay++)}); }
+  return cells;
+}
+function shiftCalendarMonth(delta){
+  const d = new Date(state.calendarMonth);
+  d.setMonth(d.getMonth()+delta);
+  state.calendarMonth = d;
+  render();
+}
+
+function rsvpStatusFor(activity, memberId){
+  const r = activity.rsvps[memberId];
+  return r ? r.status : null;
+}
+
+/* attendance outcome for a PAST activity+member: 'asistio' | 'excusado' | 'multado' */
+function attendanceOutcome(activity, memberId){
+  const override = state.fineOverrides[`${activity.id}:${memberId}`];
+  const r = activity.rsvps[memberId];
+  if(!r || r.status === null) return override==='exonerada' ? 'excusado' : 'multado';
+  if(r.status === 'voy') return 'asistio';
+  if(r.status === 'no_voy'){
+    if(r.excuse && r.excuse.trim().length>0) return 'excusado';
+    return override==='exonerada' ? 'excusado' : 'multado';
+  }
+  return 'multado';
+}
+
+function allFines(){
+  const out=[];
+  pastActivities().forEach(act=>{
+    MEMBERS.forEach(m=>{
+      const outcome = attendanceOutcome(act, m.id);
+      if(outcome==='multado'){
+        const key = `${act.id}:${m.id}`;
+        out.push({
+          activityId:act.id, activityTitle:act.title, memberId:m.id, memberName:m.name,
+          reason: act.rsvps[m.id] ? 'No asistió sin excusa aprobada' : 'No respondió / no asistió',
+          paid: state.fineOverrides[key]==='pagada',
+          key
+        });
+      }
+    });
+  });
+  return out;
+}
+
+/* ============ Modales ============ */
+function openModal(html){
+  modalStack.push(html);
+  renderModal();
+}
+function closeModal(){
+  modalStack.pop();
+  renderModal();
+}
+function renderModal(){
+  const root = document.getElementById('modal-root');
+  if(modalStack.length===0){ root.innerHTML=''; return; }
+  root.innerHTML = `<div class="modal-backdrop" onclick="if(event.target===this) closeModal()">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      ${modalStack[modalStack.length-1]}
+    </div>
+  </div>`;
+}
+
+function iconClose(){
+  return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>`;
+}
+
+/* ---- Splash de bienvenida ---- */
+let splashTimer = null;
+function dismissSplash(){
+  const el = document.getElementById('splash');
+  if(!el || el.classList.contains('hide')) return;
+  el.classList.add('hide');
+  clearTimeout(splashTimer);
+  setTimeout(()=>{ el.remove(); }, 550);
+}
+function initSplash(){
+  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  splashTimer = setTimeout(dismissSplash, reduce ? 300 : 1500);
+}
+
+/* ---- Identificación (nombre + PIN) ---- */
+function openIdentifyModal(){
+  const options = MEMBERS.map(m=>`<option value="${m.id}">${m.name}</option>`).join('');
+  openModal(`
+    <h3>Identifícate</h3>
+    <p class="lede" style="margin-bottom:14px;">Selecciona tu nombre y escribe tu PIN de 4 dígitos. Si no lo tienes, pídelo a la directiva.</p>
+    <div class="stack">
+      <div class="field">
+        <label for="idf-name">Tu nombre</label>
+        <select id="idf-name" class="input">${options}</select>
+      </div>
+      <div class="field">
+        <label for="idf-pin">PIN</label>
+        <input id="idf-pin" class="input input-pin" type="tel" inputmode="numeric" maxlength="4" placeholder="••••">
+      </div>
+      <p id="idf-error" class="error-text" style="display:none;">PIN incorrecto. Intenta de nuevo.</p>
+      <button class="btn btn-primary btn-block" onclick="submitIdentify()">Entrar</button>
+      <button class="btn btn-ghost btn-block" onclick="closeModal()">Cancelar</button>
+    </div>
+  `);
+}
+async function submitIdentify(){
+  const id = document.getElementById('idf-name').value;
+  const pin = document.getElementById('idf-pin').value.trim();
+  const errEl = document.getElementById('idf-error');
+  try{
+    const ok = await sbRpc('check_pin', {p_member_id:id, p_pin:pin});
+    if(ok===true){
+      state.currentMemberId = id;
+      closeModal();
+      render();
+    } else {
+      errEl.textContent = 'PIN incorrecto. Intenta de nuevo.';
+      errEl.style.display='block';
+    }
+  }catch(err){
+    console.error(err);
+    errEl.textContent = 'No se pudo verificar el PIN. Revisa tu conexión e intenta de nuevo.';
+    errEl.style.display='block';
+  }
+}
+
+/* ---- Excusa ---- */
+function openExcuseModal(activityId){
+  openModal(`
+    <h3>Avisar que no vas</h3>
+    <p class="lede" style="margin-bottom:14px;">Explica brevemente el motivo. La directiva revisa la excusa para eximir la multa.</p>
+    <div class="stack">
+      <div class="field">
+        <label for="excuse-text">Motivo</label>
+        <textarea id="excuse-text" class="input" placeholder="Ej. Examen a la misma hora, turno de trabajo, cita médica..."></textarea>
+      </div>
+      <button class="btn btn-primary btn-block" onclick="submitExcuse('${activityId}')">Enviar excusa</button>
+      <button class="btn btn-ghost btn-block" onclick="closeModal()">Cancelar</button>
+    </div>
+  `);
+}
+function submitExcuse(activityId){
+  const text = document.getElementById('excuse-text').value.trim();
+  setRsvp(activityId, 'no_voy', text);
+  closeModal();
+}
+
+/* ---- Pago (tienda / taquillas) ---- */
+function openPaymentModal(kind, opts){
+  // opts: {label, amount, onConfirm(method)}
+  openModal(`
+    <h3>Pagar ${opts.label}</h3>
+    <p class="lede" style="margin-bottom:14px;">Total a pagar: <strong style="color:var(--ink);">${money(opts.amount)}</strong></p>
+    <div class="stack">
+      <button class="btn btn-ghost btn-block" style="justify-content:space-between;" onclick="payWith('${kind}','ATH Móvil')">
+        <span>Pagar con ATH Móvil</span><span>→</span>
+      </button>
+      <button class="btn btn-ghost btn-block" style="justify-content:space-between;" onclick="payWith('${kind}','Tarjeta')">
+        <span>Pagar con tarjeta</span><span>→</span>
+      </button>
+      <button class="btn btn-ghost btn-block" onclick="closeModal()">Cancelar</button>
+    </div>
+  `);
+  window.__pendingPayment = opts;
+}
+function payWith(kind, method){
+  const opts = window.__pendingPayment;
+  if(method==='ATH Móvil'){
+    openModal(`
+      <h3>ATH Móvil</h3>
+      <p class="lede" style="margin-bottom:10px;">Envía <strong style="color:var(--ink);">${money(opts.amount)}</strong> al <strong style="color:var(--ink);">787-555-ZETA</strong> con tu nombre en el mensaje. Luego confirma aquí.</p>
+      <div class="stack">
+        <button class="btn btn-accent btn-block" onclick="confirmPayment('${method}')">Ya envié el pago</button>
+        <button class="btn btn-ghost btn-block" onclick="closeModal()">Cancelar</button>
+      </div>
+      <p class="hint-text" style="margin-top:10px;">Tu compra queda "pendiente de confirmar" hasta que la directiva verifique el pago.</p>
+    `);
+  } else {
+    openModal(`
+      <h3>Pagar con tarjeta</h3>
+      <div class="stack">
+        <div class="field"><label>Número de tarjeta</label><input class="input" placeholder="•••• •••• •••• 4242" maxlength="19"></div>
+        <div class="row">
+          <div class="field" style="flex:1;"><label>Vence</label><input class="input" placeholder="MM/AA"></div>
+          <div class="field" style="flex:1;"><label>CVC</label><input class="input" placeholder="•••"></div>
+        </div>
+        <button class="btn btn-accent btn-block" onclick="confirmPayment('${method}')">Pagar ${money(opts.amount)}</button>
+        <button class="btn btn-ghost btn-block" onclick="closeModal()">Cancelar</button>
+      </div>
+      <p class="hint-text" style="margin-top:10px;">Demo — no se procesa ningún cargo real.</p>
+    `);
+  }
+}
+function confirmPayment(method){
+  const opts = window.__pendingPayment;
+  const status = method==='ATH Móvil' ? 'Pendiente de confirmar' : 'Pagado';
+  opts.onConfirm(method, status);
+  closeModal();
+  openModal(`
+    <div style="text-align:center;padding:10px 4px;">
+      <div style="font-size:2.2rem;">${status==='Pagado' ? '✅' : '🕓'}</div>
+      <h3 style="margin-top:10px;">${status==='Pagado' ? '¡Pago confirmado!' : 'Pago en revisión'}</h3>
+      <p class="lede">${status==='Pagado' ? 'Tu compra quedó registrada.' : 'La directiva confirmará tu pago de ATH Móvil pronto.'}</p>
+      <button class="btn btn-primary btn-block" style="margin-top:14px;" onclick="closeModal()">Listo</button>
+    </div>
+  `);
+  render();
+}
+
+/* ---- Admin login ---- */
+function openAdminLoginModal(){
+  openModal(`
+    <h3>Acceso Directiva</h3>
+    <p class="lede" style="margin-bottom:14px;">Contraseña de directiva. <span class="hint-text">(Demo: zeta2026)</span></p>
+    <div class="stack">
+      <div class="field"><label for="admin-pass">Contraseña</label><input id="admin-pass" type="password" class="input"></div>
+      <p id="admin-error" class="error-text" style="display:none;">Contraseña incorrecta.</p>
+      <button class="btn btn-primary btn-block" onclick="submitAdminLogin()">Entrar al panel</button>
+      <button class="btn btn-ghost btn-block" onclick="closeModal()">Cancelar</button>
+    </div>
+  `);
+}
+function submitAdminLogin(){
+  const pass = document.getElementById('admin-pass').value;
+  if(pass === 'zeta2026'){
+    state.adminAuthed = true;
+    state.route='admin';
+    closeModal();
+    render();
+  } else {
+    document.getElementById('admin-error').style.display='block';
+  }
+}
+
+/* ============ Acciones ============ */
+async function setRsvp(activityId, status, excuse){
+  const act = byId(ACTIVITIES, activityId);
+  if(!state.currentMemberId) return openIdentifyModal();
+  const memberId = state.currentMemberId;
+  const prev = act.rsvps[memberId];
+  act.rsvps[memberId] = {status, excuse: excuse||''};
+  render();
+  try{
+    await sb('rsvps?on_conflict=activity_id,member_id', {
+      method:'POST',
+      headers:{'Prefer':'resolution=merge-duplicates,return=minimal'},
+      body: JSON.stringify({activity_id:activityId, member_id:memberId, status, excuse: excuse||''}),
+    });
+  }catch(err){
+    console.error(err);
+    if(prev) act.rsvps[memberId] = prev; else delete act.rsvps[memberId];
+    render();
+    alert('No se pudo guardar tu respuesta. Revisa tu conexión e intenta de nuevo.');
+  }
+}
+function goRoute(route){ state.route=route; state.selectedActivity=null; state.selectedProduct=null; window.scrollTo(0,0); render(); }
+function openActivity(id){ state.selectedActivity=id; state.route='activity'; render(); }
+function openProduct(id){ state.selectedProduct=id; state.route='product'; render(); }
+function logout(){ state.currentMemberId=null; render(); }
+async function setFineOverride(key, value){
+  const [activityId, memberId] = key.split(':');
+  const prev = state.fineOverrides[key];
+  if(value) state.fineOverrides[key] = value; else delete state.fineOverrides[key];
+  render();
+  try{
+    if(value){
+      await sb('fines?on_conflict=activity_id,member_id', {
+        method:'POST',
+        headers:{'Prefer':'resolution=merge-duplicates,return=minimal'},
+        body: JSON.stringify({activity_id:activityId, member_id:memberId, status:value}),
+      });
+    } else {
+      await sb(`fines?activity_id=eq.${activityId}&member_id=eq.${memberId}`, {method:'DELETE'});
+    }
+  }catch(err){
+    console.error(err);
+    if(prev) state.fineOverrides[key] = prev; else delete state.fineOverrides[key];
+    render();
+    alert('No se pudo actualizar la multa. Intenta de nuevo.');
+  }
+}
+function toggleFineStatus(key){
+  setFineOverride(key, state.fineOverrides[key]==='pagada' ? undefined : 'pagada');
+}
+function exonerateFine(key){
+  setFineOverride(key, state.fineOverrides[key]==='exonerada' ? undefined : 'exonerada');
+}
+async function confirmPurchaseStatus(list, id){
+  const o = list.find(x=>x.id===id);
+  if(!o) return;
+  const prev = o.status;
+  o.status = o.status==='Pagado' ? 'Pendiente de confirmar' : 'Pagado';
+  render();
+  try{
+    await sb(`purchases?id=eq.${id}`, {method:'PATCH', headers:{'Prefer':'return=minimal'}, body: JSON.stringify({status:o.status})});
+  }catch(err){
+    console.error(err);
+    o.status = prev; render();
+    alert('No se pudo actualizar la compra. Intenta de nuevo.');
+  }
+}
+
+/* ============ Iconos (tabbar) ============ */
+const ICONS = {
+  home:`<path d="M4 11.5 12 4l8 7.5"/><path d="M6 10v9a1 1 0 0 0 1 1h4v-6h2v6h4a1 1 0 0 0 1-1v-9"/>`,
+  cal:`<rect x="4" y="5.5" width="16" height="15" rx="2"/><path d="M8 3.5v4M16 3.5v4M4 10h16"/>`,
+  bag:`<path d="M7 8V6.5a5 5 0 0 1 10 0V8"/><rect x="4" y="8" width="16" height="12" rx="2"/>`,
+  doc:`<path d="M7 3.5h7l4 4V20a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1Z"/><path d="M14 3.5V8h4"/>`,
+  user:`<circle cx="12" cy="8.2" r="3.4"/><path d="M5 20c1.2-3.6 4-5.4 7-5.4s5.8 1.8 7 5.4"/>`,
+  bell:`<path d="M12 3.5a4.5 4.5 0 0 0-4.5 4.5v3.2c0 .9-.35 1.77-.98 2.4L5.5 15h13l-1.02-1.4a3.4 3.4 0 0 1-.98-2.4V8a4.5 4.5 0 0 0-4.5-4.5Z"/><path d="M10 18a2 2 0 0 0 4 0"/>`,
+};
+function icon(name, extra=''){
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" ${extra}>${ICONS[name]}</svg>`;
+}
+
+/* ============ Vistas ============ */
+function viewEvents(){
+  const me = state.currentMemberId ? member(state.currentMemberId) : null;
+  const next = nextActivity();
+  const myStatus = next && me ? rsvpStatusFor(next, me.id) : null;
+
+  const heroRsvp = !next ? '' : `
+    <div class="hero-activity">
+      <span class="cat-chip" style="background:rgba(238,241,245,.14);color:var(--chrome);margin-bottom:6px;"><span class="cat-dot" style="background:var(--chrome);"></span>${CATS[next.category].label}${next.isPublic?' · Público':''}${next.proposed?' · Propuesta':''}</span>
+      <span class="hero-date" style="display:block;">${fmtDateLong(next.date)}</span>
+      <div class="hero-title">${next.title}</div>
+      <div class="hero-meta">${next.place}</div>
+      ${me ? `
+        <div class="rsvp-actions">
+          <button class="btn ${myStatus==='voy'?'btn-accent':'btn-ghost'} btn-sm" style="${myStatus==='voy'?'':'background:rgba(238,241,245,.12);color:var(--on-navy);border-color:rgba(238,241,245,.3);'}" onclick="setRsvp('${next.id}','voy')">Voy ✓</button>
+          <button class="btn btn-ghost btn-sm" style="background:rgba(238,241,245,.12);color:var(--on-navy);border-color:rgba(238,241,245,.3);" onclick="openExcuseModal('${next.id}')">No voy</button>
+          <button class="btn btn-ghost btn-sm" style="background:rgba(238,241,245,.12);color:var(--on-navy);border-color:rgba(238,241,245,.3);margin-left:auto;" onclick="openActivity('${next.id}')">Detalles</button>
+        </div>
+        ${myStatus ? `<div style="margin-top:10px;"><span class="chip ${myStatus==='voy'?'chip-success':'chip-warning'}">${myStatus==='voy'?'Confirmaste que vas':'Avisaste que no vas'}</span></div>` : ''}
+      ` : `<div class="rsvp-actions"><button class="btn btn-accent btn-sm" onclick="openActivity('${next.id}')">Ver evento</button></div>`}
+    </div>`;
+
+  const toggle = `
+    <div class="segmented">
+      <button class="${state.eventsView==='lista'?'active':''}" onclick="state.eventsView='lista'; render();">Lista</button>
+      <button class="${state.eventsView==='calendario'?'active':''}" onclick="state.eventsView='calendario'; render();">Calendario</button>
+    </div>`;
+
+  const listRow = (a, isPastList) => {
+    let chip = `<span class="chip chip-neutral">Sin RSVP</span>`;
+    if(isPastList && me){
+      const outcome = attendanceOutcome(a, me.id);
+      chip = outcome==='asistio' ? `<span class="chip chip-success">Asististe</span>`
+           : outcome==='excusado' ? `<span class="chip chip-warning">Excusado</span>`
+           : `<span class="chip chip-danger">Multado</span>`;
+    } else if(!isPastList && me){
+      const s = rsvpStatusFor(a, me.id);
+      chip = s==='voy' ? `<span class="chip chip-success">Vas</span>`
+           : s==='no_voy' ? `<span class="chip chip-warning">No vas</span>`
+           : `<span class="chip chip-neutral">Pendiente</span>`;
+    } else if(a.isPublic){
+      chip = `<span class="chip chip-accent">Público</span>`;
+    }
+    return `
+    <div class="list-item" onclick="openActivity('${a.id}')">
+      <span class="cat-dot" style="background:var(${CATS[a.category].color});flex-shrink:0;"></span>
+      <div class="list-thumb">${fmtDateShort(a.date).toUpperCase()}</div>
+      <div class="col" style="flex:1;">
+        <span class="list-title">${a.title}${a.proposed ? ' <span class=\"chip chip-warning\" style=\"vertical-align:middle;margin-left:4px;\">Propuesta</span>' : ''}</span>
+        <span class="list-sub">${CATS[a.category].label} · ${a.place}${a.requiresTicket ? ' · ' + money(a.price) : ''}</span>
+      </div>
+      ${chip}
+    </div>`;
+  };
+
+  let body;
+  if(state.eventsView==='lista'){
+    const up = upcomingActivities(), past = pastActivities();
+    const byMonth = {};
+    up.forEach(a=>{
+      const d = new Date(a.date);
+      const key = d.toLocaleDateString('es-PR',{month:'long', year:'numeric'});
+      (byMonth[key] = byMonth[key] || []).push(a);
+    });
+    const upcomingHtml = Object.keys(byMonth).length ? Object.entries(byMonth).map(([month, items])=>`
+      <div class="section-head" style="margin-top:10px;"><h2 style="text-transform:capitalize;font-size:.92rem;color:var(--ink-soft);">${month}</h2></div>
+      <div class="card">${items.map(a=>listRow(a,false)).join('')}</div>
+    `).join('') : `<div class="card"><div class="empty-state">No hay eventos próximos.</div></div>`;
+    body = `
+      <div class="section-head"><h2>Próximos</h2></div>
+      ${upcomingHtml}
+      <div class="section-head" style="margin-top:14px;"><h2>Pasados</h2></div>
+      <div class="card">${past.map(a=>listRow(a,true)).join('') || `<div class="empty-state">Sin historial todavía.</div>`}</div>
+    `;
+  } else {
+    const cells = buildCalendarDays(state.calendarMonth);
+    const dows = ['D','L','M','M','J','V','S'];
+    const monthEvents = ACTIVITIES.filter(a=>{ const d=new Date(a.date); return d.getFullYear()===state.calendarMonth.getFullYear() && d.getMonth()===state.calendarMonth.getMonth(); })
+      .sort((a,b)=> new Date(a.date)-new Date(b.date));
+    body = `
+      <div class="card stack">
+        <div class="cal-header">
+          <button class="cal-nav-btn" onclick="shiftCalendarMonth(-1)" aria-label="Mes anterior">‹</button>
+          <span class="cal-month-label">${state.calendarMonth.toLocaleDateString('es-PR',{month:'long', year:'numeric'})}</span>
+          <button class="cal-nav-btn" onclick="shiftCalendarMonth(1)" aria-label="Mes siguiente">›</button>
+        </div>
+        <div class="cal-grid">
+          ${dows.map(d=>`<div class="cal-dow">${d}</div>`).join('')}
+          ${cells.map(c=>{
+            const dayEvents = ACTIVITIES.filter(a=> sameDay(new Date(a.date), c.date));
+            const isToday = sameDay(c.date, NOW);
+            const cls = ['cal-cell', c.other?'other-month':'', isToday?'today':'', dayEvents.length?'has-event':''].filter(Boolean).join(' ');
+            const onclick = dayEvents.length===1 ? `onclick="openActivity('${dayEvents[0].id}')"` : '';
+            return `<div class="${cls}" ${onclick}>
+              <span>${c.date.getDate()}</span>
+              ${dayEvents.length ? `<div class="cal-dots">${dayEvents.slice(0,4).map(a=>`<span class="cal-dot-mini" style="background:var(${CATS[a.category].color});"></span>`).join('')}</div>` : ''}
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+      <div class="section-head"><h2>Este mes</h2></div>
+      <div class="card">${monthEvents.map(a=>listRow(a, isPast(a.date))).join('') || `<div class="empty-state">Sin eventos este mes.</div>`}</div>
+    `;
+  }
+
+  return `
+    <div class="eyebrow">Eventos</div>
+    <h1 class="page-title">${me ? `Hola, ${firstName(me.name)}` : 'Eventos del capítulo'}</h1>
+    ${heroRsvp}
+    ${toggle}
+    ${body}
+  `;
+}
+
+function viewActivityDetail(){
+  const a = byId(ACTIVITIES, state.selectedActivity);
+  const me = state.currentMemberId;
+  const status = me ? rsvpStatusFor(a, me) : null;
+  const past = isPast(a.date);
+  const outcome = (past && me) ? attendanceOutcome(a, me) : null;
+
+  const rsvpBlock = past ? `
+    <div class="card-flat">
+      ${me ? `<span class="chip ${outcome==='asistio'?'chip-success':outcome==='excusado'?'chip-warning':'chip-danger'}">
+        ${outcome==='asistio'?'Asististe a esta actividad':outcome==='excusado'?'Quedaste excusado':'Multa aplicada por ausencia'}
+      </span>` : `<p class="hint-text">Identifícate para ver tu estatus de asistencia.</p>`}
+    </div>` : `
+    <div class="card">
+      <div class="row-between" style="margin-bottom:10px;">
+        <strong style="font-size:.88rem;">¿Vas a asistir?</strong>
+        ${status ? `<span class="chip ${status==='voy'?'chip-success':'chip-warning'}">${status==='voy'?'Confirmado':'No vas'}</span>` : ''}
+      </div>
+      <div class="row" style="gap:8px;">
+        <button class="btn ${status==='voy'?'btn-accent':'btn-ghost'} btn-block" onclick="setRsvp('${a.id}','voy')">Voy ✓</button>
+        <button class="btn ${status==='no_voy'?'btn-danger-line':'btn-ghost'} btn-block" onclick="openExcuseModal('${a.id}')">No voy</button>
+      </div>
+      <p class="hint-text" style="margin-top:10px;">Si no vas sin excusa aprobada, la directiva puede aplicar multa según el reglamento.</p>
+    </div>`;
+
+  const ticketBlockFraterno = a.requiresTicket ? `
+    <div class="card">
+      <div class="row-between">
+        <div class="col"><strong style="font-size:.9rem;">Taquilla${a.isPublic?' — Fraternos':''}</strong><span class="hint-text">${a.isPublic?'Con tu identificación de fraterno':'Entrada para este evento'}</span></div>
+        <strong style="font-family:var(--font-mono);font-size:1.1rem;">${money(a.price)}</strong>
+      </div>
+      <button class="btn btn-accent btn-block" style="margin-top:12px;" onclick="startTicketPurchase('${a.id}')">Comprar como fraterno</button>
+    </div>` : '';
+
+  const ticketBlockPublic = (a.requiresTicket && a.isPublic) ? `
+    <div class="card">
+      <div class="row-between">
+        <div class="col"><strong style="font-size:.9rem;">Taquilla — Público general</strong><span class="hint-text">No necesitas ser fraterno</span></div>
+        <strong style="font-family:var(--font-mono);font-size:1.1rem;">${money(a.price)}</strong>
+      </div>
+      <button class="btn btn-primary btn-block" style="margin-top:12px;" onclick="startGuestTicketPurchase('${a.id}')">Comprar como invitado</button>
+    </div>` : '';
+
+  return `
+    <button class="link-btn" style="padding:0 0 4px;" onclick="goRoute('events')">← Eventos</button>
+    <div class="row" style="gap:8px;flex-wrap:wrap;">
+      ${catChip(a.category)}
+      ${a.isPublic ? `<span class="chip chip-accent">Abierto al público</span>` : ''}
+      ${a.proposed ? `<span class="chip chip-warning">Propuesta — por confirmar</span>` : ''}
+    </div>
+    <div class="eyebrow">${past ? 'Evento pasado' : fmtDateLong(a.date)}</div>
+    <h1 class="page-title">${a.title}</h1>
+    <p class="lede">${a.desc}</p>
+    <div class="card-flat row" style="gap:10px;">
+      ${icon('cal','width="16" height="16" style="color:var(--ink-soft);flex-shrink:0;"')}
+      <span style="font-size:.82rem;">${fmtDateLong(a.date)} · ${a.place}</span>
+    </div>
+    ${rsvpBlock}
+    ${ticketBlockFraterno}
+    ${ticketBlockPublic}
+  `;
+}
+
+function startTicketPurchase(activityId){
+  if(!state.currentMemberId) return openIdentifyModal();
+  const a = byId(ACTIVITIES, activityId);
+  openModal(`
+    <h3>Comprar taquilla</h3>
+    <p class="lede" style="margin-bottom:14px;">${a.title} — ${fmtDateShort(a.date)}</p>
+    <div class="field" style="margin-bottom:14px;">
+      <label for="tk-qty">Cantidad</label>
+      <select id="tk-qty" class="input">
+        ${[1,2,3,4].map(n=>`<option value="${n}">${n} taquilla${n>1?'s':''} — ${money(n*a.price)}</option>`).join('')}
+      </select>
+    </div>
+    <button class="btn btn-primary btn-block" onclick="confirmTicketQty('${activityId}')">Continuar al pago</button>
+    <button class="btn btn-ghost btn-block" onclick="closeModal()">Cancelar</button>
+  `);
+}
+function confirmTicketQty(activityId){
+  const qty = parseInt(document.getElementById('tk-qty').value, 10);
+  const a = byId(ACTIVITIES, activityId);
+  const memberId = state.currentMemberId;
+  closeModal();
+  openPaymentModal('taquilla', {
+    label:`${qty} taquilla(s) — ${a.title}`,
+    amount: qty*a.price,
+    onConfirm: async (method, status)=>{
+      try{
+        const rows = await sb('tickets', {method:'POST', headers:{'Prefer':'return=representation'}, body: JSON.stringify({
+          activity_id: activityId, member_id: memberId, qty, status,
+        })});
+        const r = rows[0];
+        state.tickets.push({id:r.id, memberId:r.member_id, activityId:r.activity_id, qty:r.qty, total:qty*a.price, method, status:r.status, date:(r.created_at||todayISO()).slice(0,10)});
+      }catch(err){
+        console.error(err);
+        alert('No se pudo guardar la compra de taquilla en el servidor. Intenta de nuevo.');
+      }
+      render();
+    }
+  });
+}
+
+/* ---- Taquilla pública (invitados, sin PIN) ---- */
+function startGuestTicketPurchase(activityId){
+  const a = byId(ACTIVITIES, activityId);
+  openModal(`
+    <h3>Comprar taquilla — Público general</h3>
+    <p class="lede" style="margin-bottom:14px;">${a.title} — ${fmtDateShort(a.date)}. No necesitas ser fraterno para comprar.</p>
+    <div class="stack">
+      <div class="field"><label for="gt-name">Nombre completo</label><input id="gt-name" class="input" placeholder="Nombre y apellido"></div>
+      <div class="field"><label for="gt-contact">Teléfono o email</label><input id="gt-contact" class="input" placeholder="787-000-0000"></div>
+      <div class="field">
+        <label for="gt-qty">Cantidad</label>
+        <select id="gt-qty" class="input">${[1,2,3,4].map(n=>`<option value="${n}">${n} taquilla${n>1?'s':''} — ${money(n*a.price)}</option>`).join('')}</select>
+      </div>
+      <p id="gt-error" class="error-text" style="display:none;">Escribe tu nombre y contacto.</p>
+      <button class="btn btn-primary btn-block" onclick="confirmGuestTicketQty('${activityId}')">Continuar al pago</button>
+      <button class="btn btn-ghost btn-block" onclick="closeModal()">Cancelar</button>
+    </div>
+  `);
+}
+function confirmGuestTicketQty(activityId){
+  const name = document.getElementById('gt-name').value.trim();
+  const contact = document.getElementById('gt-contact').value.trim();
+  if(!name || !contact){ document.getElementById('gt-error').style.display='block'; return; }
+  const qty = parseInt(document.getElementById('gt-qty').value, 10);
+  const a = byId(ACTIVITIES, activityId);
+  closeModal();
+  openPaymentModal('taquilla-publico', {
+    label:`${qty} taquilla(s) — ${a.title}`,
+    amount: qty*a.price,
+    onConfirm: async (method, status)=>{
+      try{
+        const rows = await sb('public_tickets', {method:'POST', headers:{'Prefer':'return=representation'}, body: JSON.stringify({
+          activity_id: activityId, guest_name:name, guest_contact:contact, qty, status,
+        })});
+        const r = rows[0];
+        state.publicTickets.push({id:r.id, guestName:r.guest_name, guestContact:r.guest_contact, activityId:r.activity_id, qty:r.qty, total:qty*a.price, method, status:r.status, date:(r.created_at||todayISO()).slice(0,10)});
+      }catch(err){
+        console.error(err);
+        alert('No se pudo guardar la compra de taquilla en el servidor. Intenta de nuevo.');
+      }
+      render();
+    }
+  });
+}
+async function confirmAnyTicketStatus(id){
+  let o = state.tickets.find(x=>x.id===id);
+  let table = 'tickets';
+  if(!o){ o = state.publicTickets.find(x=>x.id===id); table = 'public_tickets'; }
+  if(!o) return;
+  const prev = o.status;
+  o.status = o.status==='Pagado' ? 'Pendiente de confirmar' : 'Pagado';
+  render();
+  try{
+    await sb(`${table}?id=eq.${id}`, {method:'PATCH', headers:{'Prefer':'return=minimal'}, body: JSON.stringify({status:o.status})});
+  }catch(err){
+    console.error(err);
+    o.status = prev; render();
+    alert('No se pudo actualizar la taquilla. Intenta de nuevo.');
+  }
+}
+
+/* ---- CMS de eventos (directiva) ---- */
+function openEventFormModal(eventId){
+  const editing = eventId ? byId(ACTIVITIES, eventId) : null;
+  const catOptions = Object.entries(CATS).map(([k,v])=>`<option value="${k}" ${editing&&editing.category===k?'selected':''}>${v.label}</option>`).join('');
+  const dtValue = editing ? editing.date.slice(0,16) : '';
+  openModal(`
+    <h3>${editing ? 'Editar evento' : 'Nuevo evento'}</h3>
+    <div class="stack">
+      <div class="field"><label for="ev-title">Título</label><input id="ev-title" class="input" value="${editing?editing.title:''}"></div>
+      <div class="field"><label for="ev-datetime">Fecha y hora</label><input id="ev-datetime" type="datetime-local" class="input" value="${dtValue}"></div>
+      <div class="field"><label for="ev-place">Lugar</label><input id="ev-place" class="input" value="${editing?editing.place:''}"></div>
+      <div class="field"><label for="ev-desc">Descripción</label><textarea id="ev-desc" class="input">${editing?editing.desc:''}</textarea></div>
+      <div class="field"><label for="ev-cat">Categoría</label><select id="ev-cat" class="input">${catOptions}</select></div>
+      <div class="row" style="gap:18px;flex-wrap:wrap;">
+        <label class="check-row"><input type="checkbox" id="ev-public" ${editing&&editing.isPublic?'checked':''}> Abierto al público</label>
+        <label class="check-row"><input type="checkbox" id="ev-ticket" ${editing&&editing.requiresTicket?'checked':''}> Requiere taquilla</label>
+      </div>
+      <div class="field"><label for="ev-price">Precio de taquilla (si aplica)</label><input id="ev-price" type="number" min="0" step="0.01" class="input" value="${editing&&editing.price?editing.price:''}"></div>
+      <p id="ev-error" class="error-text" style="display:none;">Completa título, fecha y lugar.</p>
+      <button class="btn btn-primary btn-block" onclick="saveEventForm(${editing?`'${editing.id}'`:'null'})">${editing?'Guardar cambios':'Crear evento'}</button>
+      ${editing ? `<button class="btn btn-danger-line btn-block" onclick="deleteEventConfirm('${editing.id}')">Eliminar evento</button>` : ''}
+      <button class="btn btn-ghost btn-block" onclick="closeModal()">Cancelar</button>
+    </div>
+  `);
+}
+async function saveEventForm(eventId){
+  const title = document.getElementById('ev-title').value.trim();
+  const dt = document.getElementById('ev-datetime').value;
+  const place = document.getElementById('ev-place').value.trim();
+  const desc = document.getElementById('ev-desc').value.trim();
+  const category = document.getElementById('ev-cat').value;
+  const isPublic = document.getElementById('ev-public').checked;
+  const requiresTicket = document.getElementById('ev-ticket').checked;
+  const price = parseFloat(document.getElementById('ev-price').value) || 0;
+  const errEl = document.getElementById('ev-error');
+  if(!title || !dt || !place){ errEl.textContent='Completa título, fecha y lugar.'; errEl.style.display='block'; return; }
+  const isoDate = dt.length===16 ? dt+':00' : dt;
+  const payload = {
+    title, date:isoDate, location:place, description:desc, category,
+    is_public:isPublic, requires_ticket:requiresTicket, price,
+  };
+  try{
+    if(eventId){
+      const rows = await sb(`activities?id=eq.${eventId}`, {method:'PATCH', headers:{'Prefer':'return=representation'}, body: JSON.stringify(payload)});
+      applyActivityRow(byId(ACTIVITIES, eventId), rows[0]);
+    } else {
+      const newId = 'a'+Date.now();
+      const rows = await sb('activities', {method:'POST', headers:{'Prefer':'return=representation'}, body: JSON.stringify({...payload, id:newId, proposed:false})});
+      ACTIVITIES.push(mapActivityRow(rows[0]));
+    }
+    closeModal();
+    render();
+  }catch(err){
+    console.error(err);
+    errEl.textContent = 'No se pudo guardar en el servidor. Revisa tu conexión e intenta de nuevo.';
+    errEl.style.display='block';
+  }
+}
+function deleteEventConfirm(eventId){
+  openModal(`
+    <h3>¿Eliminar este evento?</h3>
+    <p class="lede" style="margin-bottom:14px;">Esta acción no se puede deshacer.</p>
+    <div class="stack">
+      <button class="btn btn-danger-line btn-block" onclick="deleteEvent('${eventId}')">Sí, eliminar</button>
+      <button class="btn btn-ghost btn-block" onclick="closeModal()">Cancelar</button>
+    </div>
+  `);
+}
+async function deleteEvent(eventId){
+  closeModal();
+  try{
+    await sb(`activities?id=eq.${eventId}`, {method:'DELETE'});
+    const idx = ACTIVITIES.findIndex(a=>a.id===eventId);
+    if(idx>-1) ACTIVITIES.splice(idx,1);
+  }catch(err){
+    console.error(err);
+    alert('No se pudo eliminar el evento. Intenta de nuevo.');
+  }
+  render();
+}
+async function confirmEventProposal(eventId){
+  const a = ACTIVITIES.find(a=>a.id===eventId);
+  if(!a) return;
+  const prev = a.proposed;
+  a.proposed = false;
+  render();
+  try{
+    await sb(`activities?id=eq.${eventId}`, {method:'PATCH', headers:{'Prefer':'return=minimal'}, body: JSON.stringify({proposed:false})});
+  }catch(err){
+    console.error(err);
+    a.proposed = prev; render();
+    alert('No se pudo confirmar el evento. Intenta de nuevo.');
+  }
+}
+
+function viewShop(){
+  const items = SHOP_ITEMS.map(p=>`
+    <div class="list-item" onclick="openProduct('${p.id}')">
+      <div class="list-thumb">${p.name.split(' ').map(w=>w[0]).slice(0,2).join('')}</div>
+      <div class="col" style="flex:1;">
+        <span class="list-title">${p.name}</span>
+        <span class="list-sub">${p.blurb}</span>
+      </div>
+      <strong style="font-family:var(--font-mono);">${money(p.price)}</strong>
+    </div>
+  `).join('');
+  return `
+    <div class="eyebrow">Tienda</div>
+    <h1 class="page-title">Mercancía del capítulo</h1>
+    <p class="lede">Compra con ATH Móvil o tarjeta. Ganancias van al fondo del capítulo.</p>
+    <div class="card">${items}</div>
+  `;
+}
+
+function viewProduct(){
+  const p = byId(SHOP_ITEMS, state.selectedProduct);
+  const sizeOptions = p.sizes ? `
+    <div class="field">
+      <label for="prod-size">Talla</label>
+      <select id="prod-size" class="input">${p.sizes.map(s=>`<option>${s}</option>`).join('')}</select>
+    </div>` : '';
+  return `
+    <button class="link-btn" style="padding:0 0 4px;" onclick="goRoute('shop')">← Tienda</button>
+    <div class="eyebrow">Tienda</div>
+    <h1 class="page-title">${p.name}</h1>
+    <p class="lede">${p.blurb}</p>
+    <div class="card stack">
+      <div class="row-between">
+        <span class="hint-text">Precio</span>
+        <strong style="font-family:var(--font-mono);font-size:1.2rem;">${money(p.price)}</strong>
+      </div>
+      ${sizeOptions}
+      <div class="field">
+        <label for="prod-qty">Cantidad</label>
+        <select id="prod-qty" class="input">${[1,2,3].map(n=>`<option>${n}</option>`).join('')}</select>
+      </div>
+      <button class="btn btn-accent btn-block" onclick="startProductPurchase('${p.id}')">Comprar</button>
+    </div>
+  `;
+}
+function startProductPurchase(productId){
+  if(!state.currentMemberId) return openIdentifyModal();
+  const p = byId(SHOP_ITEMS, productId);
+  const size = p.sizes ? document.getElementById('prod-size').value : null;
+  const qty = parseInt(document.getElementById('prod-qty').value, 10);
+  const memberId = state.currentMemberId;
+  openPaymentModal('tienda', {
+    label:`${qty}× ${p.name}${size?' ('+size+')':''}`,
+    amount: qty*p.price,
+    onConfirm: async (method, status)=>{
+      try{
+        const rows = await sb('purchases', {method:'POST', headers:{'Prefer':'return=representation'}, body: JSON.stringify({
+          member_id: memberId, item_id: productId, qty, status,
+        })});
+        const r = rows[0];
+        state.purchases.push({id:r.id, memberId:r.member_id, kind:'tienda', item:p.name, detail:size||'—', qty:r.qty, total:qty*p.price, method, status:r.status, date:(r.created_at||todayISO()).slice(0,10)});
+      }catch(err){
+        console.error(err);
+        alert('No se pudo guardar la compra en el servidor. Intenta de nuevo.');
+      }
+      render();
+    }
+  });
+}
+
+function viewDocs(){
+  const cats = [...new Set(DOCS.map(d=>d.cat))];
+  const isDirectiva = state.adminAuthed;
+  const sections = cats.map(cat=>{
+    const docs = DOCS.filter(d=>d.cat===cat);
+    return `
+      <div class="section-head"><h2>${cat}</h2></div>
+      <div class="card">
+        ${docs.map(d=>{
+          const locked = d.restricted && !isDirectiva;
+          return `
+          <div class="list-item" style="${locked?'opacity:.55;cursor:default;':''}" ${locked?'':''}>
+            <div class="list-thumb">${icon('doc','width="18" height="18"')}</div>
+            <div class="col" style="flex:1;">
+              <span class="list-title">${d.name}</span>
+              <span class="list-sub">${d.cat}${d.restricted?' · Solo directiva':''}</span>
+            </div>
+            ${locked ? `<span class="chip chip-neutral">🔒</span>` : `<span class="chevron">↓</span>`}
+          </div>`;
+        }).join('')}
+      </div>`;
+  }).join('');
+  return `
+    <div class="eyebrow">Documentos</div>
+    <h1 class="page-title">Reglamento y minutas</h1>
+    <p class="lede">Consulta el reglamento, minutas de reuniones e informes del capítulo.</p>
+    ${sections}
+  `;
+}
+
+function viewProfile(){
+  const me = state.currentMemberId ? member(state.currentMemberId) : null;
+  if(!me){
+    return `
+      <div class="eyebrow">Fraternos</div>
+      <h1 class="page-title">Identifícate</h1>
+      <p class="lede">Selecciona tu nombre e ingresa tu PIN para ver tu historial de asistencia, multas y compras.</p>
+      <button class="btn btn-primary btn-block" onclick="openIdentifyModal()">Identificarme</button>
+      <div class="divider" style="margin:6px 0;"></div>
+      <div class="card-flat">
+        <strong style="font-size:.86rem;">¿Eres parte de la directiva?</strong>
+        <button class="btn btn-ghost btn-block" style="margin-top:10px;" onclick="openAdminLoginModal()">Acceso Directiva</button>
+      </div>
+    `;
+  }
+  const myFines = allFines().filter(f=>f.memberId===me.id);
+  const myPurchases = state.purchases.filter(p=>p.memberId===me.id);
+  const myTickets = state.tickets.filter(t=>t.memberId===me.id);
+  const attendanceRows = pastActivities().map(a=>{
+    const outcome = attendanceOutcome(a, me.id);
+    return `<div class="list-item">
+      <div class="col" style="flex:1;"><span class="list-title">${a.title}</span><span class="list-sub">${fmtDateShort(a.date)}</span></div>
+      <span class="chip ${outcome==='asistio'?'chip-success':outcome==='excusado'?'chip-warning':'chip-danger'}">${outcome==='asistio'?'Asististe':outcome==='excusado'?'Excusado':'Multado'}</span>
+    </div>`;
+  }).join('') || `<div class="empty-state">Sin historial todavía.</div>`;
+
+  return `
+    <div class="eyebrow">Fraternos</div>
+    <div class="card row" style="gap:12px;">
+      <div class="crest" style="width:48px;height:48px;font-size:1rem;flex-shrink:0;">${me.name.split(' ').map(w=>w[0]).slice(0,2).join('')}</div>
+      <div class="col">
+        <strong style="font-size:1.05rem;">${me.name}</strong>
+        <span class="hint-text">${me.role}</span>
+      </div>
+    </div>
+    <div class="row" style="gap:10px;">
+      <div class="card-flat" style="flex:1;">
+        <div class="stat-num" style="font-size:1.1rem;color:${myFines.filter(f=>!f.paid).length>0?'var(--danger)':'var(--ink)'};">${myFines.filter(f=>!f.paid).length}</div>
+        <div class="stat-label">Multas pendientes</div>
+      </div>
+      <div class="card-flat" style="flex:1;">
+        <div class="stat-num" style="font-size:1.1rem;">${myPurchases.length + myTickets.length}</div>
+        <div class="stat-label">Compras totales</div>
+      </div>
+    </div>
+    ${myFines.length ? `
+    <div class="section-head"><h2>Multas</h2></div>
+    <div class="card">${myFines.map(f=>`
+      <div class="list-item">
+        <div class="col" style="flex:1;"><span class="list-title">${f.activityTitle}</span><span class="list-sub">${f.reason}</span></div>
+        <span class="chip ${f.paid?'chip-success':'chip-danger'}">${f.paid?'Pagada':'Pendiente'}</span>
+      </div>`).join('')}</div>` : ''}
+    <div class="section-head"><h2>Historial de asistencia</h2></div>
+    <div class="card">${attendanceRows}</div>
+    <div class="section-head"><h2>Mis compras</h2></div>
+    <div class="card">
+      ${[...myPurchases.map(p=>({label:p.item+' '+(p.detail!=='—'?'('+p.detail+')':''), total:p.total, status:p.status})),
+         ...myTickets.map(t=>({label:'Taquilla — '+byId(ACTIVITIES,t.activityId).title, total:t.total, status:t.status}))]
+         .map(x=>`<div class="list-item">
+            <div class="col" style="flex:1;"><span class="list-title">${x.label}</span></div>
+            <div class="col" style="align-items:flex-end;">
+              <strong style="font-family:var(--font-mono);font-size:.85rem;">${money(x.total)}</strong>
+              <span class="chip ${x.status==='Pagado'?'chip-success':'chip-warning'}" style="margin-top:2px;">${x.status}</span>
+            </div>
+          </div>`).join('') || `<div class="empty-state">Aún no has comprado nada.</div>`}
+    </div>
+    <button class="btn btn-ghost btn-block" onclick="logout()">Cambiar identificación</button>
+    <div class="divider"></div>
+    <button class="btn btn-ghost btn-block" onclick="openAdminLoginModal()">Acceso Directiva</button>
+  `;
+}
+
+/* ---------- Panel de Directiva ---------- */
+function viewAdmin(){
+  const totalActivos = MEMBERS.length;
+  const next = nextActivity();
+  const confirmedNext = next ? MEMBERS.filter(m=>rsvpStatusFor(next, m.id)==='voy').length : 0;
+  const pendingFines = allFines().filter(f=>!f.paid).length;
+  const salesMonth = state.purchases.reduce((s,p)=>s+p.total,0) + state.tickets.reduce((s,t)=>s+t.total,0) + state.publicTickets.reduce((s,t)=>s+t.total,0);
+
+  const tabs = [
+    ['eventos','Eventos'],['asistencia','Asistencia'],['tienda','Tienda'],['taquillas','Taquillas'],['multas','Multas'],['activos','Activos']
+  ];
+
+  return `
+    <div class="row-between">
+      <div class="eyebrow">Panel de Directiva</div>
+      <button class="link-btn" onclick="state.adminAuthed=false; goRoute('profile');">Salir</button>
+    </div>
+    <h1 class="page-title">Directiva</h1>
+    <div class="stat-grid">
+      <div class="stat-card"><div class="stat-num">${totalActivos}</div><div class="stat-label">Total activos</div></div>
+      <div class="stat-card"><div class="stat-num">${confirmedNext}/${totalActivos}</div><div class="stat-label">Confirmados próx. actividad</div></div>
+      <div class="stat-card"><div class="stat-num" style="color:${pendingFines>0?'var(--danger)':'var(--ink)'};">${pendingFines}</div><div class="stat-label">Multas pendientes</div></div>
+      <div class="stat-card"><div class="stat-num">${money(salesMonth)}</div><div class="stat-label">Ventas registradas</div></div>
+    </div>
+    <div class="banner">
+      <div>ℹ️</div>
+      <div>Estos totales son de referencia. El registro oficial del dinero lo mantiene el tesorero en su Excel.</div>
+    </div>
+    <div class="admin-tabs">
+      ${tabs.map(([k,l])=>`<button class="admin-tab-btn ${state.adminTab===k?'active':''}" onclick="state.adminTab='${k}'; render();">${l}</button>`).join('')}
+    </div>
+    ${adminTabContent()}
+  `;
+}
+
+function adminTabContent(){
+  if(state.adminTab==='eventos'){
+    const rows = ACTIVITIES.slice().sort((a,b)=>new Date(a.date)-new Date(b.date)).map(a=>`
+      <div class="list-item" style="cursor:default;">
+        <span class="cat-dot" style="background:var(${CATS[a.category].color});flex-shrink:0;"></span>
+        <div class="col" style="flex:1;">
+          <span class="list-title">${a.title}${a.proposed ? ' <span class="chip chip-warning" style="vertical-align:middle;margin-left:4px;">Propuesta</span>' : ''}</span>
+          <span class="list-sub">${fmtDateShort(a.date)} · ${CATS[a.category].label}${a.isPublic?' · Público':''}${a.requiresTicket?' · '+money(a.price):''}</span>
+        </div>
+        <div class="row" style="gap:6px;flex-shrink:0;">
+          ${a.proposed ? `<button class="btn btn-ghost btn-sm" onclick="confirmEventProposal('${a.id}')">Confirmar</button>` : ''}
+          <button class="btn btn-ghost btn-sm" onclick="openEventFormModal('${a.id}')">Editar</button>
+        </div>
+      </div>`).join('');
+    return `
+      <button class="btn btn-primary btn-block" onclick="openEventFormModal(null)">+ Nuevo evento</button>
+      <div class="card">${rows || `<div class="empty-state">No hay eventos todavía.</div>`}</div>
+      <p class="hint-text">Aquí la directiva crea, edita y elimina eventos: marca si son abiertos al público, si requieren taquilla y su categoría.</p>
+    `;
+  }
+
+  if(state.adminTab==='asistencia'){
+    const opts = ACTIVITIES.slice().sort((a,b)=>new Date(b.date)-new Date(a.date))
+      .map(a=>`<option value="${a.id}" ${state.adminActivity===a.id?'selected':''}>${a.title} — ${fmtDateShort(a.date)}</option>`).join('');
+    const act = byId(ACTIVITIES, state.adminActivity) || ACTIVITIES[0];
+    const past = isPast(act.date);
+    const rows = MEMBERS.map(m=>{
+      let statusLabel, chipClass, actions='';
+      if(past){
+        const outcome = attendanceOutcome(act, m.id);
+        statusLabel = outcome==='asistio'?'Asistió':outcome==='excusado'?'Excusado':'Multado';
+        chipClass = outcome==='asistio'?'chip-success':outcome==='excusado'?'chip-warning':'chip-danger';
+        if(outcome==='multado'){
+          actions = `<button class="btn btn-ghost btn-sm" onclick="exonerateFine('${act.id}:${m.id}')">Exonerar</button>`;
+        } else if(outcome==='excusado' && act.rsvps[m.id] && !(act.rsvps[m.id].excuse && act.rsvps[m.id].excuse.trim())){
+          actions = `<button class="btn btn-ghost btn-sm" onclick="exonerateFine('${act.id}:${m.id}')">Deshacer</button>`;
+        }
+      } else {
+        const s = rsvpStatusFor(act, m.id);
+        statusLabel = s==='voy'?'Confirmó':s==='no_voy'?'No va':'Sin respuesta';
+        chipClass = s==='voy'?'chip-success':s==='no_voy'?'chip-warning':'chip-neutral';
+      }
+      const excuse = act.rsvps[m.id] && act.rsvps[m.id].excuse;
+      return `<tr>
+        <td>${m.name}</td>
+        <td><span class="chip ${chipClass}">${statusLabel}</span></td>
+        <td>${excuse || '—'}</td>
+        <td>${actions}</td>
+      </tr>`;
+    }).join('');
+    return `
+      <div class="field"><label for="admin-act-select">Actividad</label>
+        <select id="admin-act-select" class="input" onchange="state.adminActivity=this.value; render();">${opts}</select>
+      </div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Activo</th><th>Estatus</th><th>Excusa</th><th></th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
+    `;
+  }
+
+  if(state.adminTab==='multas'){
+    const fines = allFines();
+    if(!fines.length) return `<div class="empty-state">No hay multas registradas.</div>`;
+    return `<div class="table-wrap"><table>
+      <thead><tr><th>Activo</th><th>Actividad</th><th>Motivo</th><th>Estatus</th><th></th></tr></thead>
+      <tbody>${fines.map(f=>`
+        <tr>
+          <td>${f.memberName}</td>
+          <td>${f.activityTitle}</td>
+          <td>${f.reason}</td>
+          <td><span class="chip ${f.paid?'chip-success':'chip-danger'}">${f.paid?'Pagada':'Pendiente'}</span></td>
+          <td><button class="btn btn-ghost btn-sm" onclick="toggleFineStatus('${f.key}')">${f.paid?'Marcar pendiente':'Marcar pagada'}</button></td>
+        </tr>`).join('')}</tbody>
+    </table></div>`;
+  }
+
+  if(state.adminTab==='tienda'){
+    if(!state.purchases.length) return `<div class="empty-state">No hay compras todavía.</div>`;
+    return `<div class="table-wrap"><table>
+      <thead><tr><th>Activo</th><th>Producto</th><th>Detalle</th><th class="num">Total</th><th>Método</th><th>Estatus</th><th></th></tr></thead>
+      <tbody>${state.purchases.map(p=>`
+        <tr>
+          <td>${member(p.memberId).name}</td>
+          <td>${p.item}</td>
+          <td>${p.detail} ×${p.qty}</td>
+          <td class="num">${money(p.total)}</td>
+          <td>${p.method}</td>
+          <td><span class="chip ${p.status==='Pagado'?'chip-success':'chip-warning'}">${p.status}</span></td>
+          <td>${p.status!=='Pagado'?`<button class="btn btn-ghost btn-sm" onclick="confirmPurchaseStatus(state.purchases,'${p.id}')">Confirmar</button>`:''}</td>
+        </tr>`).join('')}</tbody>
+    </table></div>`;
+  }
+
+  if(state.adminTab==='taquillas'){
+    const allTix = [
+      ...state.tickets.map(t=>({...t, who:member(t.memberId).name, kind:'Fraterno'})),
+      ...state.publicTickets.map(t=>({...t, who:`${t.guestName} (${t.guestContact})`, kind:'Público'})),
+    ].sort((a,b)=> new Date(b.date)-new Date(a.date));
+    if(!allTix.length) return `<div class="empty-state">No hay taquillas vendidas todavía.</div>`;
+    return `<div class="table-wrap"><table>
+      <thead><tr><th>Comprador</th><th>Tipo</th><th>Evento</th><th class="num">Cant.</th><th class="num">Total</th><th>Método</th><th>Estatus</th><th></th></tr></thead>
+      <tbody>${allTix.map(t=>`
+        <tr>
+          <td>${t.who}</td>
+          <td><span class="chip ${t.kind==='Público'?'chip-accent':'chip-neutral'}">${t.kind}</span></td>
+          <td>${byId(ACTIVITIES,t.activityId).title}</td>
+          <td class="num">${t.qty}</td>
+          <td class="num">${money(t.total)}</td>
+          <td>${t.method}</td>
+          <td><span class="chip ${t.status==='Pagado'?'chip-success':'chip-warning'}">${t.status}</span></td>
+          <td>${t.status!=='Pagado'?`<button class="btn btn-ghost btn-sm" onclick="confirmAnyTicketStatus('${t.id}')">Confirmar</button>`:''}</td>
+        </tr>`).join('')}</tbody>
+    </table></div>`;
+  }
+
+  if(state.adminTab==='activos'){
+    return `<div class="table-wrap"><table>
+      <thead><tr><th>Nombre</th><th>Rol</th></tr></thead>
+      <tbody>${MEMBERS.map(m=>`
+        <tr><td>${m.name}</td><td>${m.role}</td></tr>
+      `).join('')}</tbody>
+    </table></div>
+    <p class="hint-text" style="margin-top:8px;">El teléfono y el PIN de cada activo no se muestran aquí por seguridad — se administran directamente en Supabase (tabla "members"), ya que el acceso a este panel todavía es solo una contraseña compartida y no una cuenta individual.</p>`;
+  }
+  return '';
+}
+
+/* ============ Render principal ============ */
+function render(){
+  const tabs = [
+    ['events','Eventos','cal'],
+    ['shop','Tienda','bag'],
+    ['docs','Documentos','doc'],
+    ['profile','Fraternos','user'],
+  ];
+  const activeTabRoute = ['activity'].includes(state.route) ? 'events' : ['product'].includes(state.route) ? 'shop' : state.route==='admin' ? 'profile' : state.route;
+
+  let content;
+  if(state.route==='admin' && !state.adminAuthed){ state.route='profile'; }
+  if(state.loading){
+    content = `
+      <div style="text-align:center;padding:70px 20px;">
+        <p class="lede">Cargando datos del capítulo…</p>
+      </div>`;
+  } else if(state.loadError){
+    content = `
+      <div style="text-align:center;padding:60px 20px;">
+        <h1 class="page-title" style="font-size:1.3rem;">No se pudo conectar</h1>
+        <p class="lede">${state.loadError}</p>
+        <button class="btn btn-primary" style="margin-top:14px;" onclick="loadFromSupabase()">Reintentar</button>
+      </div>`;
+  } else {
+    switch(state.route){
+      case 'events': content = viewEvents(); break;
+      case 'activity': content = viewActivityDetail(); break;
+      case 'shop': content = viewShop(); break;
+      case 'product': content = viewProduct(); break;
+      case 'docs': content = viewDocs(); break;
+      case 'profile': content = viewProfile(); break;
+      case 'admin': content = viewAdmin(); break;
+      default: content = viewEvents();
+    }
+  }
+
+  document.getElementById('app').innerHTML = `
+    <div class="topbar">
+      <div class="crest">ΦΣΑ</div>
+      <div class="brand">
+        <span class="brand-name">Zeta Hub</span>
+        <span class="brand-sub">Phi Sigma Alpha · Cap. Zeta</span>
+      </div>
+    </div>
+    <div class="tabbar">
+      ${tabs.map(([r,label,ic])=>`
+        <button class="tab-btn ${activeTabRoute===r?'active':''}" onclick="goRoute('${r}')">
+          ${icon(ic)}<span>${label}</span>
+        </button>`).join('')}
+    </div>
+    <div class="view">${content}</div>
+  `;
+  renderModal();
+}
+
+render();
+initSplash();
+loadFromSupabase();
+</script>
