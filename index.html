@@ -354,6 +354,8 @@
     max-height:88vh;overflow-y:auto;
   }
   @media (min-width:560px){.modal{border-radius:20px;}}
+  @media (min-width:900px){.modal{max-width:520px;}}
+  @media (min-width:1300px){.modal{max-width:580px;}}
   .modal-handle{width:38px;height:4px;background:var(--border);border-radius:99px;margin:0 auto 14px;}
   .modal h3{font-family:var(--font-display);font-size:1.15rem;margin:0 0 4px;}
 
@@ -527,10 +529,10 @@ function applyActivityRow(target, r){
   target.requiresTicket=!!r.requires_ticket; target.price=Number(r.price)||0; target.proposed=!!r.proposed;
 }
 function mapShopRow(r){
-  return {id:r.id, name:r.name, price:Number(r.price)||0, sizes:null, blurb:r.description||''};
+  return {id:r.id, name:r.name, price:Number(r.price)||0, sizes:null, blurb:r.description||'', imageUrl:r.image_url||''};
 }
 function mapDocRow(r){
-  return {id:r.id, cat:r.category, name:r.title, date:null, restricted:!!r.restricted};
+  return {id:r.id, cat:r.category, name:r.title, date:null, restricted:!!r.restricted, url:r.url||''};
 }
 
 /* ============ Estado (caché local — la fuente real es Supabase) ============ */
@@ -540,6 +542,7 @@ const state = {
   selectedProduct:null,
   currentMemberId:null,
   adminAuthed:false,
+  adminPassword:null,
   adminTab:'eventos',
   adminActivity:null,
   eventsView:'lista',
@@ -613,6 +616,21 @@ async function loadFromSupabase(){
   render();
 }
 
+/* Los documentos "restringidos" quedan fuera del select público por RLS.
+   Con la contraseña de directiva vigente, list_docs_all() los trae también. */
+async function fetchDocs(){
+  try{
+    const rows = (state.adminAuthed && state.adminPassword)
+      ? await sbRpc('list_docs_all', {p_admin_password: state.adminPassword})
+      : await sb('docs?select=*');
+    DOCS.length = 0;
+    (rows||[]).forEach(r=>DOCS.push(mapDocRow(r)));
+    render();
+  }catch(err){
+    console.error('Error cargando documentos:', err);
+  }
+}
+
 let modalStack = [];
 
 /* ============ Utilidades ============ */
@@ -630,9 +648,16 @@ function fmtDateShort(iso){
   return d.toLocaleDateString('es-PR', {day:'numeric', month:'short'});
 }
 function isPast(iso){ return new Date(iso).getTime() < NOW.getTime(); }
-function upcomingActivities(){ return ACTIVITIES.filter(a=>!isPast(a.date)).sort((a,b)=> new Date(a.date)-new Date(b.date)); }
-function pastActivities(){ return ACTIVITIES.filter(a=>isPast(a.date)).sort((a,b)=> new Date(b.date)-new Date(a.date)); }
-function nextActivity(){ return upcomingActivities()[0] || null; }
+
+/* Reuniones de Directiva y CEN son internas: no aparecen en el calendario ni
+   en el historial que ven los fraternos normales, solo en el panel de
+   Directiva (que siempre consulta ACTIVITIES directamente, sin filtrar). */
+function isHiddenCategory(cat){ return cat==='directiva' || cat==='cen'; }
+function memberVisibleActivities(){ return ACTIVITIES.filter(a=>!isHiddenCategory(a.category)); }
+
+function upcomingActivities(list){ list = list || memberVisibleActivities(); return list.filter(a=>!isPast(a.date)).sort((a,b)=> new Date(a.date)-new Date(b.date)); }
+function pastActivities(list){ list = list || memberVisibleActivities(); return list.filter(a=>isPast(a.date)).sort((a,b)=> new Date(b.date)-new Date(a.date)); }
+function nextActivity(list){ return upcomingActivities(list)[0] || null; }
 
 function catChip(catKey){
   const c = CATS[catKey] || CATS.general;
@@ -678,7 +703,7 @@ function attendanceOutcome(activity, memberId){
 
 function allFines(){
   const out=[];
-  pastActivities().forEach(act=>{
+  pastActivities(ACTIVITIES).forEach(act=>{
     MEMBERS.forEach(m=>{
       const outcome = attendanceOutcome(act, m.id);
       if(outcome==='multado'){
@@ -862,7 +887,7 @@ function confirmPayment(method){
 function openAdminLoginModal(){
   openModal(`
     <h3>Acceso Directiva</h3>
-    <p class="lede" style="margin-bottom:14px;">Contraseña de directiva. <span class="hint-text">(Demo: zeta2026)</span></p>
+    <p class="lede" style="margin-bottom:14px;">Ingresa la contraseña de directiva.</p>
     <div class="stack">
       <div class="field"><label for="admin-pass">Contraseña</label><input id="admin-pass" type="password" class="input"></div>
       <p id="admin-error" class="error-text" style="display:none;">Contraseña incorrecta.</p>
@@ -871,15 +896,60 @@ function openAdminLoginModal(){
     </div>
   `);
 }
-function submitAdminLogin(){
+async function submitAdminLogin(){
   const pass = document.getElementById('admin-pass').value;
-  if(pass === 'zeta2026'){
-    state.adminAuthed = true;
-    state.route='admin';
-    closeModal();
-    render();
-  } else {
-    document.getElementById('admin-error').style.display='block';
+  const errEl = document.getElementById('admin-error');
+  try{
+    const ok = await sbRpc('check_admin_password', {p_password: pass});
+    if(ok===true){
+      state.adminAuthed = true;
+      state.adminPassword = pass;
+      state.route='admin';
+      closeModal();
+      render();
+      fetchDocs();
+    } else {
+      errEl.textContent = 'Contraseña incorrecta.';
+      errEl.style.display='block';
+    }
+  }catch(err){
+    console.error(err);
+    errEl.textContent = 'No se pudo verificar la contraseña. Revisa tu conexión e intenta de nuevo.';
+    errEl.style.display='block';
+  }
+}
+function adminLogout(){
+  state.adminAuthed = false;
+  state.adminPassword = null;
+  goRoute('profile');
+  fetchDocs();
+}
+async function submitChangeAdminPassword(){
+  const oldPass = document.getElementById('set-pass-old').value;
+  const newPass = document.getElementById('set-pass-new').value;
+  const newPass2 = document.getElementById('set-pass-new2').value;
+  const msgEl = document.getElementById('set-pass-msg');
+  msgEl.className = 'error-text';
+  if(newPass.length < 4){ msgEl.textContent='La contraseña nueva debe tener al menos 4 caracteres.'; msgEl.style.display='block'; return; }
+  if(newPass !== newPass2){ msgEl.textContent='Las contraseñas nuevas no coinciden.'; msgEl.style.display='block'; return; }
+  try{
+    const ok = await sbRpc('set_admin_password', {p_old:oldPass, p_new:newPass});
+    if(ok===true){
+      state.adminPassword = newPass;
+      msgEl.className = 'hint-text';
+      msgEl.textContent = 'Contraseña actualizada.';
+      msgEl.style.display='block';
+      document.getElementById('set-pass-old').value='';
+      document.getElementById('set-pass-new').value='';
+      document.getElementById('set-pass-new2').value='';
+    } else {
+      msgEl.textContent = 'La contraseña actual no es correcta.';
+      msgEl.style.display='block';
+    }
+  }catch(err){
+    console.error(err);
+    msgEl.textContent = 'No se pudo cambiar la contraseña. Intenta de nuevo.';
+    msgEl.style.display='block';
   }
 }
 
@@ -1041,7 +1111,8 @@ function viewEvents(){
   } else {
     const cells = buildCalendarDays(state.calendarMonth);
     const dows = ['D','L','M','M','J','V','S'];
-    const monthEvents = ACTIVITIES.filter(a=>{ const d=new Date(a.date); return d.getFullYear()===state.calendarMonth.getFullYear() && d.getMonth()===state.calendarMonth.getMonth(); })
+    const visible = memberVisibleActivities();
+    const monthEvents = visible.filter(a=>{ const d=new Date(a.date); return d.getFullYear()===state.calendarMonth.getFullYear() && d.getMonth()===state.calendarMonth.getMonth(); })
       .sort((a,b)=> new Date(a.date)-new Date(b.date));
     body = `
       <div class="card stack">
@@ -1053,7 +1124,7 @@ function viewEvents(){
         <div class="cal-grid">
           ${dows.map(d=>`<div class="cal-dow">${d}</div>`).join('')}
           ${cells.map(c=>{
-            const dayEvents = ACTIVITIES.filter(a=> sameDay(new Date(a.date), c.date));
+            const dayEvents = visible.filter(a=> sameDay(new Date(a.date), c.date));
             const isToday = sameDay(c.date, NOW);
             const cls = ['cal-cell', c.other?'other-month':'', isToday?'today':'', dayEvents.length?'has-event':''].filter(Boolean).join(' ');
             const onclick = dayEvents.length===1 ? `onclick="openActivity('${dayEvents[0].id}')"` : '';
@@ -1407,6 +1478,74 @@ function startProductPurchase(productId){
   });
 }
 
+/* ---- CMS de productos (directiva) ---- */
+function applyShopRow(target, r){
+  target.name=r.name; target.price=Number(r.price)||0; target.blurb=r.description||''; target.imageUrl=r.image_url||'';
+}
+function openProductFormModal(productId){
+  const editing = productId ? byId(SHOP_ITEMS, productId) : null;
+  openModal(`
+    <h3>${editing ? 'Editar producto' : 'Nuevo producto'}</h3>
+    <div class="stack">
+      <div class="field"><label for="prod-name">Nombre</label><input id="prod-name" class="input" value="${editing?editing.name:''}"></div>
+      <div class="field"><label for="prod-price">Precio</label><input id="prod-price" type="number" min="0" step="0.01" class="input" value="${editing?editing.price:''}"></div>
+      <div class="field"><label for="prod-desc">Descripción</label><textarea id="prod-desc" class="input">${editing?editing.blurb:''}</textarea></div>
+      <div class="field"><label for="prod-img">Link de imagen (opcional)</label><input id="prod-img" class="input" value="${editing&&editing.imageUrl?editing.imageUrl:''}" placeholder="https://..."></div>
+      <p id="prod-error" class="error-text" style="display:none;">Completa nombre y precio.</p>
+      <button class="btn btn-primary btn-block" onclick="saveProductForm(${editing?`'${editing.id}'`:'null'})">${editing?'Guardar cambios':'Crear producto'}</button>
+      ${editing ? `<button class="btn btn-danger-line btn-block" onclick="deleteProductConfirm('${editing.id}')">Eliminar producto</button>` : ''}
+      <button class="btn btn-ghost btn-block" onclick="closeModal()">Cancelar</button>
+    </div>
+  `);
+}
+async function saveProductForm(productId){
+  const name = document.getElementById('prod-name').value.trim();
+  const price = parseFloat(document.getElementById('prod-price').value);
+  const description = document.getElementById('prod-desc').value.trim();
+  const image_url = document.getElementById('prod-img').value.trim();
+  const errEl = document.getElementById('prod-error');
+  if(!name || isNaN(price) || price<0){ errEl.textContent='Completa nombre y precio.'; errEl.style.display='block'; return; }
+  const payload = { name, price, description, image_url };
+  try{
+    if(productId){
+      const rows = await sb(`shop_items?id=eq.${productId}`, {method:'PATCH', headers:{'Prefer':'return=representation'}, body: JSON.stringify(payload)});
+      applyShopRow(byId(SHOP_ITEMS, productId), rows[0]);
+    } else {
+      const newId = 'p'+Date.now();
+      const rows = await sb('shop_items', {method:'POST', headers:{'Prefer':'return=representation'}, body: JSON.stringify({...payload, id:newId})});
+      SHOP_ITEMS.push(mapShopRow(rows[0]));
+    }
+    closeModal();
+    render();
+  }catch(err){
+    console.error(err);
+    errEl.textContent = 'No se pudo guardar en el servidor. Revisa tu conexión e intenta de nuevo.';
+    errEl.style.display='block';
+  }
+}
+function deleteProductConfirm(productId){
+  openModal(`
+    <h3>¿Eliminar este producto?</h3>
+    <p class="lede" style="margin-bottom:14px;">Esta acción no se puede deshacer. Las compras ya registradas de este producto se conservan en el historial.</p>
+    <div class="stack">
+      <button class="btn btn-danger-line btn-block" onclick="deleteProduct('${productId}')">Sí, eliminar</button>
+      <button class="btn btn-ghost btn-block" onclick="closeModal()">Cancelar</button>
+    </div>
+  `);
+}
+async function deleteProduct(productId){
+  closeModal();
+  try{
+    await sb(`shop_items?id=eq.${productId}`, {method:'DELETE'});
+    const idx = SHOP_ITEMS.findIndex(p=>p.id===productId);
+    if(idx>-1) SHOP_ITEMS.splice(idx,1);
+  }catch(err){
+    console.error(err);
+    alert('No se pudo eliminar el producto. Puede que tenga compras asociadas. Intenta de nuevo.');
+  }
+  render();
+}
+
 function viewDocs(){
   const cats = [...new Set(DOCS.map(d=>d.cat))];
   const isDirectiva = state.adminAuthed;
@@ -1417,14 +1556,15 @@ function viewDocs(){
       <div class="card">
         ${docs.map(d=>{
           const locked = d.restricted && !isDirectiva;
+          const openable = !locked && d.url;
           return `
-          <div class="list-item" style="${locked?'opacity:.55;cursor:default;':''}" ${locked?'':''}>
+          <div class="list-item" style="${locked?'opacity:.55;cursor:default;':''}${openable?'':'cursor:default;'}" ${openable?`onclick="window.open('${d.url}','_blank')"`:''}>
             <div class="list-thumb">${icon('doc','width="18" height="18"')}</div>
             <div class="col" style="flex:1;">
               <span class="list-title">${d.name}</span>
               <span class="list-sub">${d.cat}${d.restricted?' · Solo directiva':''}</span>
             </div>
-            ${locked ? `<span class="chip chip-neutral">🔒</span>` : `<span class="chevron">↓</span>`}
+            ${locked ? `<span class="chip chip-neutral">🔒</span>` : openable ? `<span class="chevron">↓</span>` : `<span class="hint-text" style="font-size:.72rem;">Sin link</span>`}
           </div>`;
         }).join('')}
       </div>`;
@@ -1435,6 +1575,72 @@ function viewDocs(){
     <p class="lede">Consulta el reglamento, minutas de reuniones e informes del capítulo.</p>
     ${sections}
   `;
+}
+
+/* ---- CMS de documentos (directiva) ---- */
+function openDocFormModal(docId){
+  const editing = docId ? byId(DOCS, docId) : null;
+  const catList = [...new Set(DOCS.map(d=>d.cat))];
+  openModal(`
+    <h3>${editing ? 'Editar documento' : 'Nuevo documento'}</h3>
+    <div class="stack">
+      <div class="field"><label for="doc-title">Título</label><input id="doc-title" class="input" value="${editing?editing.name:''}"></div>
+      <div class="field">
+        <label for="doc-cat">Categoría</label>
+        <input id="doc-cat" class="input" list="doc-cat-list" value="${editing?editing.cat:''}" placeholder="Ej. Reglamento, Minutas...">
+        <datalist id="doc-cat-list">${catList.map(c=>`<option value="${c}">`).join('')}</datalist>
+      </div>
+      <div class="field"><label for="doc-url">Link del documento</label><input id="doc-url" class="input" value="${editing?editing.url:''}" placeholder="https://drive.google.com/..."></div>
+      <label class="check-row"><input type="checkbox" id="doc-restricted" ${editing&&editing.restricted?'checked':''}> Solo directiva</label>
+      <p id="doc-error" class="error-text" style="display:none;">Completa título y categoría.</p>
+      <button class="btn btn-primary btn-block" onclick="saveDocForm(${editing?`'${editing.id}'`:'null'})">${editing?'Guardar cambios':'Crear documento'}</button>
+      ${editing ? `<button class="btn btn-danger-line btn-block" onclick="deleteDocConfirm('${editing.id}')">Eliminar documento</button>` : ''}
+      <button class="btn btn-ghost btn-block" onclick="closeModal()">Cancelar</button>
+    </div>
+  `);
+}
+async function saveDocForm(docId){
+  const title = document.getElementById('doc-title').value.trim();
+  const cat = document.getElementById('doc-cat').value.trim();
+  const url = document.getElementById('doc-url').value.trim();
+  const restricted = document.getElementById('doc-restricted').checked;
+  const errEl = document.getElementById('doc-error');
+  if(!title || !cat){ errEl.textContent='Completa título y categoría.'; errEl.style.display='block'; return; }
+  const payload = { title, category:cat, url, restricted };
+  try{
+    if(docId){
+      await sb(`docs?id=eq.${docId}`, {method:'PATCH', headers:{'Prefer':'return=minimal'}, body: JSON.stringify(payload)});
+    } else {
+      const newId = 'd'+Date.now();
+      await sb('docs', {method:'POST', headers:{'Prefer':'return=minimal'}, body: JSON.stringify({...payload, id:newId})});
+    }
+    closeModal();
+    await fetchDocs();
+  }catch(err){
+    console.error(err);
+    errEl.textContent = 'No se pudo guardar en el servidor. Revisa tu conexión e intenta de nuevo.';
+    errEl.style.display='block';
+  }
+}
+function deleteDocConfirm(docId){
+  openModal(`
+    <h3>¿Eliminar este documento?</h3>
+    <p class="lede" style="margin-bottom:14px;">Esta acción no se puede deshacer.</p>
+    <div class="stack">
+      <button class="btn btn-danger-line btn-block" onclick="deleteDoc('${docId}')">Sí, eliminar</button>
+      <button class="btn btn-ghost btn-block" onclick="closeModal()">Cancelar</button>
+    </div>
+  `);
+}
+async function deleteDoc(docId){
+  closeModal();
+  try{
+    await sb(`docs?id=eq.${docId}`, {method:'DELETE'});
+    await fetchDocs();
+  }catch(err){
+    console.error(err);
+    alert('No se pudo eliminar el documento. Intenta de nuevo.');
+  }
 }
 
 function viewProfile(){
@@ -1452,17 +1658,6 @@ function viewProfile(){
       </div>
     `;
   }
-  const myFines = allFines().filter(f=>f.memberId===me.id);
-  const myPurchases = state.purchases.filter(p=>p.memberId===me.id);
-  const myTickets = state.tickets.filter(t=>t.memberId===me.id);
-  const attendanceRows = pastActivities().map(a=>{
-    const outcome = attendanceOutcome(a, me.id);
-    return `<div class="list-item">
-      <div class="col" style="flex:1;"><span class="list-title">${a.title}</span><span class="list-sub">${fmtDateShort(a.date)}</span></div>
-      <span class="chip ${outcome==='asistio'?'chip-success':outcome==='excusado'?'chip-warning':'chip-danger'}">${outcome==='asistio'?'Asististe':outcome==='excusado'?'Excusado':'Multado'}</span>
-    </div>`;
-  }).join('') || `<div class="empty-state">Sin historial todavía.</div>`;
-
   return `
     <div class="eyebrow">Fraternos</div>
     <div class="card row" style="gap:12px;">
@@ -1472,59 +1667,97 @@ function viewProfile(){
         <span class="hint-text">${me.role}</span>
       </div>
     </div>
-    <div class="row" style="gap:10px;">
-      <div class="card-flat" style="flex:1;">
-        <div class="stat-num" style="font-size:1.1rem;color:${myFines.filter(f=>!f.paid).length>0?'var(--danger)':'var(--ink)'};">${myFines.filter(f=>!f.paid).length}</div>
-        <div class="stat-label">Multas pendientes</div>
-      </div>
-      <div class="card-flat" style="flex:1;">
-        <div class="stat-num" style="font-size:1.1rem;">${myPurchases.length + myTickets.length}</div>
-        <div class="stat-label">Compras totales</div>
-      </div>
-    </div>
-    ${myFines.length ? `
-    <div class="section-head"><h2>Multas</h2></div>
-    <div class="card">${myFines.map(f=>`
-      <div class="list-item">
-        <div class="col" style="flex:1;"><span class="list-title">${f.activityTitle}</span><span class="list-sub">${f.reason}</span></div>
-        <span class="chip ${f.paid?'chip-success':'chip-danger'}">${f.paid?'Pagada':'Pendiente'}</span>
-      </div>`).join('')}</div>` : ''}
-    <div class="section-head"><h2>Historial de asistencia</h2></div>
-    <div class="card">${attendanceRows}</div>
-    <div class="section-head"><h2>Mis compras</h2></div>
-    <div class="card">
-      ${[...myPurchases.map(p=>({label:p.item+' '+(p.detail!=='—'?'('+p.detail+')':''), total:p.total, status:p.status})),
-         ...myTickets.map(t=>({label:'Taquilla — '+byId(ACTIVITIES,t.activityId).title, total:t.total, status:t.status}))]
-         .map(x=>`<div class="list-item">
-            <div class="col" style="flex:1;"><span class="list-title">${x.label}</span></div>
-            <div class="col" style="align-items:flex-end;">
-              <strong style="font-family:var(--font-mono);font-size:.85rem;">${money(x.total)}</strong>
-              <span class="chip ${x.status==='Pagado'?'chip-success':'chip-warning'}" style="margin-top:2px;">${x.status}</span>
-            </div>
-          </div>`).join('') || `<div class="empty-state">Aún no has comprado nada.</div>`}
-    </div>
+    ${memberHistoryHtml(me.id, pastActivities())}
     <button class="btn btn-ghost btn-block" onclick="logout()">Cambiar identificación</button>
     <div class="divider"></div>
     <button class="btn btn-ghost btn-block" onclick="openAdminLoginModal()">Acceso Directiva</button>
   `;
 }
 
+/* Bloque de historial (multas, asistencia, compras) reutilizado por el
+   perfil del fraterno (pastList filtrado, sin Directiva/CEN) y por el
+   drill-down de Directiva en la pestaña Activos (pastList completo). */
+function memberHistoryHtml(memberId, pastList){
+  const fines = allFines().filter(f=>f.memberId===memberId);
+  const purchases = state.purchases.filter(p=>p.memberId===memberId);
+  const tickets = state.tickets.filter(t=>t.memberId===memberId);
+  const attendanceRows = pastList.map(a=>{
+    const outcome = attendanceOutcome(a, memberId);
+    return `<div class="list-item">
+      <div class="col" style="flex:1;"><span class="list-title">${a.title}</span><span class="list-sub">${fmtDateShort(a.date)}</span></div>
+      <span class="chip ${outcome==='asistio'?'chip-success':outcome==='excusado'?'chip-warning':'chip-danger'}">${outcome==='asistio'?'Asistió':outcome==='excusado'?'Excusado':'Multado'}</span>
+    </div>`;
+  }).join('') || `<div class="empty-state">Sin historial todavía.</div>`;
+
+  const purchaseRows = [
+    ...purchases.map(p=>({label:p.item+' '+(p.detail!=='—'?'('+p.detail+')':''), total:p.total, status:p.status})),
+    ...tickets.map(t=>({label:'Taquilla — '+byId(ACTIVITIES,t.activityId).title, total:t.total, status:t.status})),
+  ].map(x=>`<div class="list-item">
+      <div class="col" style="flex:1;"><span class="list-title">${x.label}</span></div>
+      <div class="col" style="align-items:flex-end;">
+        <strong style="font-family:var(--font-mono);font-size:.85rem;">${money(x.total)}</strong>
+        <span class="chip ${x.status==='Pagado'?'chip-success':'chip-warning'}" style="margin-top:2px;">${x.status}</span>
+      </div>
+    </div>`).join('') || `<div class="empty-state">Sin compras todavía.</div>`;
+
+  return `
+    <div class="row" style="gap:10px;">
+      <div class="card-flat" style="flex:1;">
+        <div class="stat-num" style="font-size:1.1rem;color:${fines.filter(f=>!f.paid).length>0?'var(--danger)':'var(--ink)'};">${fines.filter(f=>!f.paid).length}</div>
+        <div class="stat-label">Multas pendientes</div>
+      </div>
+      <div class="card-flat" style="flex:1;">
+        <div class="stat-num" style="font-size:1.1rem;">${purchases.length + tickets.length}</div>
+        <div class="stat-label">Compras totales</div>
+      </div>
+    </div>
+    ${fines.length ? `
+    <div class="section-head"><h2>Multas</h2></div>
+    <div class="card">${fines.map(f=>`
+      <div class="list-item">
+        <div class="col" style="flex:1;"><span class="list-title">${f.activityTitle}</span><span class="list-sub">${f.reason}</span></div>
+        <span class="chip ${f.paid?'chip-success':'chip-danger'}">${f.paid?'Pagada':'Pendiente'}</span>
+      </div>`).join('')}</div>` : ''}
+    <div class="section-head"><h2>Historial de asistencia</h2></div>
+    <div class="card">${attendanceRows}</div>
+    <div class="section-head"><h2>Compras</h2></div>
+    <div class="card">${purchaseRows}</div>
+  `;
+}
+
+function openMemberHistoryModal(memberId){
+  const m = member(memberId);
+  if(!m) return;
+  openModal(`
+    <div class="row" style="gap:12px;margin-bottom:12px;">
+      <div class="crest" style="width:44px;height:44px;font-size:.95rem;flex-shrink:0;">${m.name.split(' ').map(w=>w[0]).slice(0,2).join('')}</div>
+      <div class="col">
+        <h3 style="margin:0;">${m.name}</h3>
+        <span class="hint-text">${m.role}</span>
+      </div>
+    </div>
+    ${memberHistoryHtml(memberId, pastActivities(ACTIVITIES))}
+    <button class="btn btn-ghost btn-block" style="margin-top:14px;" onclick="closeModal()">Cerrar</button>
+  `);
+}
+
 /* ---------- Panel de Directiva ---------- */
 function viewAdmin(){
   const totalActivos = MEMBERS.length;
-  const next = nextActivity();
+  const next = nextActivity(ACTIVITIES);
   const confirmedNext = next ? MEMBERS.filter(m=>rsvpStatusFor(next, m.id)==='voy').length : 0;
   const pendingFines = allFines().filter(f=>!f.paid).length;
   const salesMonth = state.purchases.reduce((s,p)=>s+p.total,0) + state.tickets.reduce((s,t)=>s+t.total,0) + state.publicTickets.reduce((s,t)=>s+t.total,0);
 
   const tabs = [
-    ['eventos','Eventos'],['asistencia','Asistencia'],['tienda','Tienda'],['taquillas','Taquillas'],['multas','Multas'],['activos','Activos']
+    ['eventos','Eventos'],['asistencia','Asistencia'],['productos','Productos'],['tienda','Ventas'],
+    ['taquillas','Taquillas'],['multas','Multas'],['activos','Fraternos'],['documentos','Documentos'],['ajustes','Ajustes']
   ];
 
   return `
     <div class="row-between">
       <div class="eyebrow">Panel de Directiva</div>
-      <button class="link-btn" onclick="state.adminAuthed=false; goRoute('profile');">Salir</button>
+      <button class="link-btn" onclick="adminLogout()">Salir</button>
     </div>
     <h1 class="page-title">Directiva</h1>
     <div class="stat-grid">
@@ -1661,13 +1894,69 @@ function adminTabContent(){
   }
 
   if(state.adminTab==='activos'){
-    return `<div class="table-wrap"><table>
-      <thead><tr><th>Nombre</th><th>Rol</th></tr></thead>
-      <tbody>${MEMBERS.map(m=>`
-        <tr><td>${m.name}</td><td>${m.role}</td></tr>
-      `).join('')}</tbody>
-    </table></div>
-    <p class="hint-text" style="margin-top:8px;">El teléfono y el PIN de cada activo no se muestran aquí por seguridad — se administran directamente en Supabase (tabla "members"), ya que el acceso a este panel todavía es solo una contraseña compartida y no una cuenta individual.</p>`;
+    const rows = MEMBERS.map(m=>`
+      <div class="list-item" onclick="openMemberHistoryModal('${m.id}')">
+        <div class="list-thumb">${m.name.split(' ').map(w=>w[0]).slice(0,2).join('')}</div>
+        <div class="col" style="flex:1;">
+          <span class="list-title">${m.name}</span>
+          <span class="list-sub">${m.role}</span>
+        </div>
+        <span class="chevron">›</span>
+      </div>`).join('');
+    return `
+      <div class="card">${rows || `<div class="empty-state">No hay activos todavía.</div>`}</div>
+      <p class="hint-text">Toca un fraterno para ver su historial completo de asistencia, multas y compras. El teléfono y el PIN no se muestran aquí por seguridad — se administran directamente en Supabase (tabla "members").</p>
+    `;
+  }
+
+  if(state.adminTab==='productos'){
+    const rows = SHOP_ITEMS.map(p=>`
+      <div class="list-item" style="cursor:default;">
+        <div class="list-thumb">${p.name.split(' ').map(w=>w[0]).slice(0,2).join('')}</div>
+        <div class="col" style="flex:1;">
+          <span class="list-title">${p.name}</span>
+          <span class="list-sub">${p.blurb}</span>
+        </div>
+        <strong style="font-family:var(--font-mono);font-size:.85rem;">${money(p.price)}</strong>
+        <div class="row" style="gap:6px;flex-shrink:0;margin-left:8px;">
+          <button class="btn btn-ghost btn-sm" onclick="openProductFormModal('${p.id}')">Editar</button>
+        </div>
+      </div>`).join('');
+    return `
+      <button class="btn btn-primary btn-block" onclick="openProductFormModal(null)">+ Nuevo producto</button>
+      <div class="card">${rows || `<div class="empty-state">No hay productos todavía.</div>`}</div>
+    `;
+  }
+
+  if(state.adminTab==='documentos'){
+    const rows = DOCS.map(d=>`
+      <div class="list-item" style="cursor:default;">
+        <div class="list-thumb">${icon('doc','width="18" height="18"')}</div>
+        <div class="col" style="flex:1;">
+          <span class="list-title">${d.name}</span>
+          <span class="list-sub">${d.cat}${d.restricted?' · Solo directiva':''}${d.url?'':' · Sin link'}</span>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="openDocFormModal('${d.id}')">Editar</button>
+      </div>`).join('');
+    return `
+      <button class="btn btn-primary btn-block" onclick="openDocFormModal(null)">+ Nuevo documento</button>
+      <div class="card">${rows || `<div class="empty-state">No hay documentos todavía.</div>`}</div>
+      <p class="hint-text">Los documentos marcados "Solo directiva" quedan ocultos para los fraternos normales.</p>
+    `;
+  }
+
+  if(state.adminTab==='ajustes'){
+    return `
+      <div class="card stack">
+        <h2 style="font-family:var(--font-display);font-size:1rem;margin:0;">Contraseña de directiva</h2>
+        <p class="lede">Esta es la contraseña compartida que usa toda la directiva para entrar a este panel.</p>
+        <div class="field"><label for="set-pass-old">Contraseña actual</label><input id="set-pass-old" type="password" class="input"></div>
+        <div class="field"><label for="set-pass-new">Contraseña nueva</label><input id="set-pass-new" type="password" class="input"></div>
+        <div class="field"><label for="set-pass-new2">Confirmar contraseña nueva</label><input id="set-pass-new2" type="password" class="input"></div>
+        <p id="set-pass-msg" style="display:none;"></p>
+        <button class="btn btn-primary btn-block" onclick="submitChangeAdminPassword()">Cambiar contraseña</button>
+      </div>
+    `;
   }
   return '';
 }
