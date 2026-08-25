@@ -298,7 +298,7 @@
   .stat-card{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-md);padding:14px;}
   .stat-num{font-family:var(--font-mono);font-size:1.4rem;font-weight:600;font-variant-numeric:tabular-nums;}
   .stat-label{font-size:.72rem;color:var(--ink-soft);font-weight:600;}
-  .admin-tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;}
+  .admin-tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;mask-image:linear-gradient(to right, black calc(100% - 28px), transparent 100%);-webkit-mask-image:linear-gradient(to right, black calc(100% - 28px), transparent 100%);}
   .admin-tabs::-webkit-scrollbar{display:none;}
   .admin-tab-btn{
     flex-shrink:0;border:1px solid var(--border);background:var(--surface-2);color:var(--ink-soft);
@@ -568,6 +568,22 @@ async function fetchDocs(){
   }
 }
 
+/* list_members() (público) solo expone id/name/role/birthday. Con la
+   contraseña de directiva vigente, admin_list_members() trae también
+   phone y pin para poder editar el roster. */
+async function fetchMembers(){
+  try{
+    const rows = (state.adminAuthed && state.adminPassword)
+      ? await sbRpc('admin_list_members', {p_admin_password: state.adminPassword})
+      : await sbRpc('list_members');
+    MEMBERS.length = 0;
+    (rows||[]).forEach(r=>MEMBERS.push(r));
+    render();
+  }catch(err){
+    console.error('Error cargando fraternos:', err);
+  }
+}
+
 let modalStack = [];
 
 /* ============ Utilidades ============ */
@@ -585,6 +601,20 @@ function fmtDateShort(iso){
   return d.toLocaleDateString('es-PR', {day:'numeric', month:'short'});
 }
 function isPast(iso){ return new Date(iso).getTime() < NOW.getTime(); }
+
+/* birthday es un DATE puro ('YYYY-MM-DD'), sin hora. Parsearlo con
+   `new Date(iso)` lo interpreta como medianoche UTC y en zonas al oeste
+   de UTC (como Puerto Rico) puede mostrar el día anterior — por eso se
+   parsea el string directamente en vez de pasar por Date/timezone. */
+const MONTH_SHORT_ES = ['ene','feb','mar','abr','may','jun','jul','ago','sept','oct','nov','dic'];
+function parseDateParts(iso){
+  const [y,m,d] = iso.split('-').map(Number);
+  return {y, m, d};
+}
+function fmtBirthdayShort(iso){
+  const {m,d} = parseDateParts(iso);
+  return `${d} ${MONTH_SHORT_ES[m-1]}`;
+}
 
 /* Reuniones de Directiva y CEN son internas: no aparecen en el calendario ni
    en el historial que ven los fraternos normales, solo en el panel de
@@ -845,6 +875,7 @@ async function submitAdminLogin(){
       closeModal();
       render();
       fetchDocs();
+      fetchMembers();
     } else {
       errEl.textContent = 'Contraseña incorrecta.';
       errEl.style.display='block';
@@ -860,6 +891,7 @@ function adminLogout(){
   state.adminPassword = null;
   goRoute('profile');
   fetchDocs();
+  fetchMembers();
 }
 async function submitChangeAdminPassword(){
   const oldPass = document.getElementById('set-pass-old').value;
@@ -1000,7 +1032,7 @@ function viewEvents(){
     </div>`;
 
   const listRow = (a, isPastList) => {
-    let chip = `<span class="chip chip-neutral">Sin RSVP</span>`;
+    let chip = '';
     if(isPastList && me){
       const outcome = attendanceOutcome(a, me.id);
       chip = outcome==='asistio' ? `<span class="chip chip-success">Asististe</span>`
@@ -1010,17 +1042,18 @@ function viewEvents(){
       const s = rsvpStatusFor(a, me.id);
       chip = s==='voy' ? `<span class="chip chip-success">Vas</span>`
            : s==='no_voy' ? `<span class="chip chip-warning">No vas</span>`
-           : `<span class="chip chip-neutral">Pendiente</span>`;
+           : '';
     } else if(a.isPublic){
       chip = `<span class="chip chip-accent">Público</span>`;
     }
+    const catColor = `var(${CATS[a.category].color})`, catSoft = `var(${CATS[a.category].soft})`;
     return `
-    <div class="list-item" onclick="openActivity('${a.id}')">
-      <span class="cat-dot" style="background:var(${CATS[a.category].color});flex-shrink:0;"></span>
-      <div class="list-thumb">${fmtDateShort(a.date).toUpperCase()}</div>
+    <div class="list-item" style="border-left:3px solid ${catColor};padding-left:11px;" onclick="openActivity('${a.id}')">
+      <div class="list-thumb" style="background:${catSoft};color:${catColor};border-color:transparent;">${fmtDateShort(a.date).toUpperCase()}</div>
       <div class="col" style="flex:1;">
-        <span class="list-title">${a.title}${a.proposed ? ' <span class=\"chip chip-warning\" style=\"vertical-align:middle;margin-left:4px;\">Propuesta</span>' : ''}</span>
+        <span class="list-title">${a.title}</span>
         <span class="list-sub">${CATS[a.category].label} · ${a.place}${a.requiresTicket ? ' · ' + money(a.price) : ''}</span>
+        ${a.proposed ? `<span class="chip chip-warning" style="align-self:flex-start;margin-top:3px;">Propuesta</span>` : ''}
       </div>
       ${chip}
     </div>`;
@@ -1049,8 +1082,11 @@ function viewEvents(){
     const cells = buildCalendarDays(state.calendarMonth);
     const dows = ['D','L','M','M','J','V','S'];
     const visible = memberVisibleActivities();
+    const calMonth = state.calendarMonth.getMonth()+1;
     const monthEvents = visible.filter(a=>{ const d=new Date(a.date); return d.getFullYear()===state.calendarMonth.getFullYear() && d.getMonth()===state.calendarMonth.getMonth(); })
       .sort((a,b)=> new Date(a.date)-new Date(b.date));
+    const monthBirthdays = MEMBERS.filter(m=>m.birthday && parseDateParts(m.birthday).m===calMonth)
+      .sort((a,b)=> parseDateParts(a.birthday).d - parseDateParts(b.birthday).d);
     body = `
       <div class="card stack">
         <div class="cal-header">
@@ -1062,16 +1098,25 @@ function viewEvents(){
           ${dows.map(d=>`<div class="cal-dow">${d}</div>`).join('')}
           ${cells.map(c=>{
             const dayEvents = visible.filter(a=> sameDay(new Date(a.date), c.date));
+            const dayBirthdays = MEMBERS.filter(m=>m.birthday && (()=>{const p=parseDateParts(m.birthday); return p.m===c.date.getMonth()+1 && p.d===c.date.getDate();})());
             const isToday = sameDay(c.date, NOW);
             const cls = ['cal-cell', c.other?'other-month':'', isToday?'today':'', dayEvents.length?'has-event':''].filter(Boolean).join(' ');
             const onclick = dayEvents.length===1 ? `onclick="openActivity('${dayEvents[0].id}')"` : '';
             return `<div class="${cls}" ${onclick}>
               <span>${c.date.getDate()}</span>
               ${dayEvents.length ? `<div class="cal-dots">${dayEvents.slice(0,4).map(a=>`<span class="cal-dot-mini" style="background:var(${CATS[a.category].color});"></span>`).join('')}</div>` : ''}
+              ${dayBirthdays.length ? `<span style="font-size:.55rem;line-height:1;">🎂</span>` : ''}
             </div>`;
           }).join('')}
         </div>
       </div>
+      ${monthBirthdays.length ? `
+      <div class="section-head"><h2>🎂 Cumpleaños este mes</h2></div>
+      <div class="card">${monthBirthdays.map(m=>`
+        <div class="list-item" style="cursor:default;">
+          <div class="list-thumb">${fmtBirthdayShort(m.birthday).toUpperCase()}</div>
+          <div class="col" style="flex:1;"><span class="list-title">${m.name}</span></div>
+        </div>`).join('')}</div>` : ''}
       <div class="section-head"><h2>Este mes</h2></div>
       <div class="card">${monthEvents.map(a=>listRow(a, isPast(a.date))).join('') || `<div class="empty-state">Sin eventos este mes.</div>`}</div>
     `;
@@ -1130,14 +1175,16 @@ function viewActivityDetail(){
     </div>` : '';
 
   return `
-    <button class="link-btn" style="padding:0 0 4px;" onclick="goRoute('events')">← Eventos</button>
+    <button class="btn btn-ghost btn-sm" style="align-self:flex-start;" onclick="goRoute('events')">← Eventos</button>
     <div class="row" style="gap:8px;flex-wrap:wrap;">
       ${catChip(a.category)}
       ${a.isPublic ? `<span class="chip chip-accent">Abierto al público</span>` : ''}
       ${a.proposed ? `<span class="chip chip-warning">Propuesta — por confirmar</span>` : ''}
     </div>
-    <div class="eyebrow">${past ? 'Evento pasado' : fmtDateLong(a.date)}</div>
-    <h1 class="page-title">${a.title}</h1>
+    <div class="col" style="gap:4px;">
+      <div class="eyebrow">${past ? 'Evento pasado' : fmtDateLong(a.date)}</div>
+      <h1 class="page-title">${a.title}</h1>
+    </div>
     <p class="lede">${a.desc}</p>
     <div class="card-flat row" style="gap:10px;">
       ${icon('cal','width="16" height="16" style="color:var(--ink-soft);flex-shrink:0;"')}
@@ -1371,7 +1418,7 @@ function viewProduct(){
       <select id="prod-size" class="input">${p.sizes.map(s=>`<option>${s}</option>`).join('')}</select>
     </div>` : '';
   return `
-    <button class="link-btn" style="padding:0 0 4px;" onclick="goRoute('shop')">← Tienda</button>
+    <button class="btn btn-ghost btn-sm" style="align-self:flex-start;" onclick="goRoute('shop')">← Tienda</button>
     <div class="product-hero-img">${p.imageUrl ? `<img src="${p.imageUrl}" alt="${p.name}">` : p.name.split(' ').map(w=>w[0]).slice(0,2).join('')}</div>
     <div class="eyebrow">Tienda</div>
     <h1 class="page-title">${p.name}</h1>
@@ -1678,6 +1725,70 @@ function openMemberHistoryModal(memberId){
   `);
 }
 
+/* ---- CMS de fraternos (directiva) ---- */
+function openMemberFormModal(memberId){
+  const editing = memberId ? byId(MEMBERS, memberId) : null;
+  openModal(`
+    <h3>${editing ? 'Editar fraterno' : 'Nuevo fraterno'}</h3>
+    <div class="stack">
+      <div class="field"><label for="mem-name">Nombre</label><input id="mem-name" class="input" value="${editing?editing.name:''}"></div>
+      <div class="field"><label for="mem-role">Rol</label><input id="mem-role" class="input" value="${editing?editing.role:'Activo'}" placeholder="Ej. Activo, Presidente..."></div>
+      <div class="field"><label for="mem-phone">Teléfono</label><input id="mem-phone" class="input" value="${editing&&editing.phone?editing.phone:''}" placeholder="787-000-0000"></div>
+      <div class="field"><label for="mem-pin">PIN (4 dígitos)</label><input id="mem-pin" class="input input-pin" type="tel" inputmode="numeric" maxlength="4" value="${editing&&editing.pin?editing.pin:''}" placeholder="••••"></div>
+      <div class="field"><label for="mem-birthday">Cumpleaños</label><input id="mem-birthday" type="date" class="input" value="${editing&&editing.birthday?editing.birthday:''}"></div>
+      <p id="mem-error" class="error-text" style="display:none;"></p>
+      <button class="btn btn-primary btn-block" onclick="saveMemberForm(${editing?`'${editing.id}'`:'null'})">${editing?'Guardar cambios':'Crear fraterno'}</button>
+      ${editing ? `<button class="btn btn-danger-line btn-block" onclick="deleteMemberConfirm('${editing.id}')">Eliminar fraterno</button>` : ''}
+      <button class="btn btn-ghost btn-block" onclick="closeModal()">Cancelar</button>
+    </div>
+  `);
+}
+async function saveMemberForm(memberId){
+  const name = document.getElementById('mem-name').value.trim();
+  const role = document.getElementById('mem-role').value.trim() || 'Activo';
+  const phone = document.getElementById('mem-phone').value.trim();
+  const pin = document.getElementById('mem-pin').value.trim();
+  const birthday = document.getElementById('mem-birthday').value || null;
+  const errEl = document.getElementById('mem-error');
+  if(!name){ errEl.textContent='Completa el nombre.'; errEl.style.display='block'; return; }
+  if(!/^\d{4}$/.test(pin)){ errEl.textContent='El PIN debe ser de 4 dígitos.'; errEl.style.display='block'; return; }
+  const id = memberId || 'm'+Date.now();
+  try{
+    const ok = await sbRpc('admin_upsert_member', {
+      p_admin_password: state.adminPassword, p_id:id, p_name:name, p_role:role,
+      p_phone:phone, p_pin:pin, p_birthday:birthday,
+    });
+    if(ok!==true){ errEl.textContent='No se pudo guardar (sesión de directiva vencida).'; errEl.style.display='block'; return; }
+    closeModal();
+    await fetchMembers();
+  }catch(err){
+    console.error(err);
+    errEl.textContent = 'No se pudo guardar en el servidor. Revisa tu conexión e intenta de nuevo.';
+    errEl.style.display='block';
+  }
+}
+function deleteMemberConfirm(memberId){
+  openModal(`
+    <h3>¿Eliminar este fraterno?</h3>
+    <p class="lede" style="margin-bottom:14px;">Esta acción no se puede deshacer. Si tiene RSVPs, multas o compras registradas, no se podrá eliminar.</p>
+    <div class="stack">
+      <button class="btn btn-danger-line btn-block" onclick="deleteMember('${memberId}')">Sí, eliminar</button>
+      <button class="btn btn-ghost btn-block" onclick="closeModal()">Cancelar</button>
+    </div>
+  `);
+}
+async function deleteMember(memberId){
+  closeModal();
+  try{
+    const ok = await sbRpc('admin_delete_member', {p_admin_password: state.adminPassword, p_id: memberId});
+    if(ok!==true){ alert('No se pudo eliminar (sesión de directiva vencida).'); return; }
+    await fetchMembers();
+  }catch(err){
+    console.error(err);
+    alert('No se pudo eliminar. Puede que tenga RSVPs, multas o compras asociadas.');
+  }
+}
+
 /* ---------- Panel de Directiva ---------- */
 function viewAdmin(){
   const totalActivos = MEMBERS.length;
@@ -1736,43 +1847,66 @@ function adminTabContent(){
   }
 
   if(state.adminTab==='asistencia'){
+    if(!ACTIVITIES.length) return `<div class="empty-state">No hay eventos todavía.</div>`;
     const opts = ACTIVITIES.slice().sort((a,b)=>new Date(b.date)-new Date(a.date))
       .map(a=>`<option value="${a.id}" ${state.adminActivity===a.id?'selected':''}>${a.title} — ${fmtDateShort(a.date)}</option>`).join('');
     const act = byId(ACTIVITIES, state.adminActivity) || ACTIVITIES[0];
     const past = isPast(act.date);
-    const rows = MEMBERS.map(m=>{
-      let statusLabel, chipClass, actions='';
-      if(past){
-        const outcome = attendanceOutcome(act, m.id);
-        statusLabel = outcome==='asistio'?'Asistió':outcome==='excusado'?'Excusado':'Multado';
-        chipClass = outcome==='asistio'?'chip-success':outcome==='excusado'?'chip-warning':'chip-danger';
-        if(outcome==='multado'){
-          actions = `<button class="btn btn-ghost btn-sm" onclick="exonerateFine('${act.id}:${m.id}')">Exonerar</button>`;
-        } else if(outcome==='excusado' && act.rsvps[m.id] && !(act.rsvps[m.id].excuse && act.rsvps[m.id].excuse.trim())){
-          actions = `<button class="btn btn-ghost btn-sm" onclick="exonerateFine('${act.id}:${m.id}')">Deshacer</button>`;
-        }
-      } else {
-        const s = rsvpStatusFor(act, m.id);
-        statusLabel = s==='voy'?'Confirmó':s==='no_voy'?'No va':'Sin respuesta';
-        chipClass = s==='voy'?'chip-success':s==='no_voy'?'chip-warning':'chip-neutral';
-      }
-      const excuse = act.rsvps[m.id] && act.rsvps[m.id].excuse;
-      return `<tr>
-        <td>${m.name}</td>
-        <td><span class="chip ${chipClass}">${statusLabel}</span></td>
-        <td>${excuse || '—'}</td>
-        <td>${actions}</td>
-      </tr>`;
-    }).join('');
-    return `
+    const picker = `
       <div class="field"><label for="admin-act-select">Actividad</label>
         <select id="admin-act-select" class="input" onchange="state.adminActivity=this.value; render();">${opts}</select>
-      </div>
-      <div class="table-wrap"><table>
-        <thead><tr><th>Activo</th><th>Estatus</th><th>Excusa</th><th></th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table></div>
-    `;
+      </div>`;
+    if(!MEMBERS.length){
+      return `${picker}<div class="empty-state">No hay fraternos cargados todavía. Agrégalos en la pestaña "Fraternos".</div>`;
+    }
+
+    const memberRow = (m, note, actions) => `
+      <div class="list-item" style="cursor:default;">
+        <div class="col" style="flex:1;">
+          <span class="list-title">${m.name}</span>
+          ${note ? `<span class="list-sub">${note}</span>` : ''}
+        </div>
+        ${actions || ''}
+      </div>`;
+    const section = (title, items) => items.length ? `
+      <div class="section-head"><h2>${title} <span class="hint-text">(${items.length})</span></h2></div>
+      <div class="card">${items.join('')}</div>
+    ` : '';
+
+    if(past){
+      const buckets = {asistio:[], excusado:[], multado:[]};
+      MEMBERS.forEach(m=>{
+        const outcome = attendanceOutcome(act, m.id);
+        const excuse = act.rsvps[m.id] && act.rsvps[m.id].excuse;
+        let actions = '';
+        if(outcome==='multado'){
+          actions = `<button class="btn btn-ghost btn-sm" onclick="exonerateFine('${act.id}:${m.id}')">Exonerar</button>`;
+        } else if(outcome==='excusado' && !(excuse && excuse.trim())){
+          actions = `<button class="btn btn-ghost btn-sm" onclick="exonerateFine('${act.id}:${m.id}')">Deshacer</button>`;
+        }
+        buckets[outcome].push(memberRow(m, excuse, actions));
+      });
+      return `
+        ${picker}
+        ${section('✅ Asistieron', buckets.asistio)}
+        ${section('🟡 Excusados', buckets.excusado)}
+        ${section('🔴 A multar — sin excusa', buckets.multado)}
+      `;
+    } else {
+      const buckets = {voy:[], no_voy:[], pendiente:[]};
+      MEMBERS.forEach(m=>{
+        const s = rsvpStatusFor(act, m.id);
+        const excuse = act.rsvps[m.id] && act.rsvps[m.id].excuse;
+        const key = s==='voy' ? 'voy' : s==='no_voy' ? 'no_voy' : 'pendiente';
+        buckets[key].push(memberRow(m, excuse));
+      });
+      return `
+        ${picker}
+        ${section('✅ Van', buckets.voy)}
+        ${section('🟡 No van', buckets.no_voy)}
+        ${section('⚪️ Sin respuesta', buckets.pendiente)}
+      `;
+    }
   }
 
   if(state.adminTab==='multas'){
@@ -1832,17 +1966,17 @@ function adminTabContent(){
 
   if(state.adminTab==='activos'){
     const rows = MEMBERS.map(m=>`
-      <div class="list-item" onclick="openMemberHistoryModal('${m.id}')">
-        <div class="list-thumb">${m.name.split(' ').map(w=>w[0]).slice(0,2).join('')}</div>
-        <div class="col" style="flex:1;">
+      <div class="list-item" style="cursor:default;">
+        <div class="col" style="flex:1;cursor:pointer;" onclick="openMemberHistoryModal('${m.id}')">
           <span class="list-title">${m.name}</span>
-          <span class="list-sub">${m.role}</span>
+          <span class="list-sub">${m.role}${m.birthday ? ' · 🎂 ' + fmtBirthdayShort(m.birthday) : ''}</span>
         </div>
-        <span class="chevron">›</span>
+        <button class="btn btn-ghost btn-sm" onclick="openMemberFormModal('${m.id}')">Editar</button>
       </div>`).join('');
     return `
-      <div class="card">${rows || `<div class="empty-state">No hay activos todavía.</div>`}</div>
-      <p class="hint-text">Toca un fraterno para ver su historial completo de asistencia, multas y compras. El teléfono y el PIN no se muestran aquí por seguridad — se administran directamente en Supabase (tabla "members").</p>
+      <button class="btn btn-primary btn-block" onclick="openMemberFormModal(null)">+ Nuevo fraterno</button>
+      <div class="card">${rows || `<div class="empty-state">No hay fraternos todavía.</div>`}</div>
+      <p class="hint-text">Toca el nombre para ver su historial completo de asistencia, multas y compras. "Editar" cambia su info, PIN y cumpleaños.</p>
     `;
   }
 
