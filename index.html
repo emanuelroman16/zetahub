@@ -1,4 +1,5 @@
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Zeta Hub</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -194,6 +195,7 @@
   }
   .hero-title{font-family:var(--font-display);font-size:1.5rem;font-weight:700;margin:6px 0 2px;text-wrap:balance;position:relative;letter-spacing:-.01em;}
   .hero-meta{font-size:.8rem;color:rgba(245,246,248,.65);position:relative;}
+  .detail-meta-text{font-size:1.05rem;font-weight:600;color:var(--on-navy);position:relative;line-height:1.3;}
   .rsvp-actions{display:flex;gap:8px;margin-top:16px;position:relative;flex-wrap:wrap;}
 
   .list-item{
@@ -595,14 +597,29 @@ function byId(arr,id){return arr.find(x=>x.id===id);}
 function member(id){return MEMBERS.find(m=>m.id===id);}
 function firstName(name){return name.split(' ')[0];}
 function money(n){return '$' + n.toFixed(2);}
+/* Todo el capítulo opera en hora de Puerto Rico (UTC-4, sin horario de
+   verano). Se fija timeZone explícitamente en vez de confiar en la del
+   dispositivo del que mira la app — si no, un fraterno de viaje o un
+   teléfono mal configurado vería las horas corridas. */
+const PR_TZ = 'America/Puerto_Rico';
 function fmtDateLong(iso){
   const d = new Date(iso);
-  return d.toLocaleDateString('es-PR', {weekday:'long', day:'numeric', month:'long'}) + ' · ' +
-         d.toLocaleTimeString('es-PR', {hour:'numeric', minute:'2-digit'});
+  return d.toLocaleDateString('es-PR', {weekday:'long', day:'numeric', month:'long', timeZone:PR_TZ}) + ' · ' +
+         d.toLocaleTimeString('es-PR', {hour:'numeric', minute:'2-digit', timeZone:PR_TZ});
 }
 function fmtDateShort(iso){
   const d = new Date(iso);
-  return d.toLocaleDateString('es-PR', {day:'numeric', month:'short'});
+  return d.toLocaleDateString('es-PR', {day:'numeric', month:'short', timeZone:PR_TZ});
+}
+/* Convierte un instante UTC guardado a la hora de pared en Puerto Rico
+   que espera un <input type="datetime-local">, para que al editar un
+   evento se vea la misma hora que la directiva escribió originalmente. */
+function toDatetimeLocalPR(iso){
+  const d = new Date(iso);
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone:PR_TZ, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false,
+  }).formatToParts(d).reduce((acc,p)=>{ acc[p.type]=p.value; return acc; }, {});
+  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour==='24'?'00':parts.hour}:${parts.minute}`;
 }
 function isPast(iso){ return new Date(iso).getTime() < NOW.getTime(); }
 
@@ -953,12 +970,11 @@ function openActivity(id){ state.selectedActivity=id; state.route='activity'; re
    hay varios muestra un modal para elegir cuál abrir. */
 function openDayEvents(ids){
   if(!ids || !ids.length) return;
-  if(ids.length===1) return openActivity(ids[0]);
   const acts = ids.map(id=>byId(ACTIVITIES,id)).filter(Boolean).sort((a,b)=>new Date(a.date)-new Date(b.date));
   if(!acts.length) return;
   openModal(`
     <h3>${fmtDateLong(acts[0].date).split(' · ')[0]}</h3>
-    <p class="lede" style="margin-bottom:12px;">${acts.length} eventos este día</p>
+    <p class="lede" style="margin-bottom:12px;">${acts.length===1?'1 evento este día':acts.length+' eventos este día'}</p>
     <div class="stack">
       ${acts.map(a=>`
         <div class="list-item" style="border:1px solid var(--border);border-radius:var(--radius-md);border-left:3px solid var(${CATS[a.category].color});padding-left:11px;background:var(--surface-2);" onclick="closeModal(); openActivity('${a.id}')">
@@ -1097,7 +1113,7 @@ function viewEvents(){
     const byMonth = {};
     up.forEach(a=>{
       const d = new Date(a.date);
-      const key = d.toLocaleDateString('es-PR',{month:'long', year:'numeric'});
+      const key = d.toLocaleDateString('es-PR',{month:'long', year:'numeric', timeZone:PR_TZ});
       (byMonth[key] = byMonth[key] || []).push(a);
     });
     const upcomingHtml = Object.keys(byMonth).length ? Object.entries(byMonth).map(([month, items])=>`
@@ -1191,19 +1207,22 @@ function viewActivityDetail(){
   const ticketBlockFraterno = a.requiresTicket ? `
     <div class="card">
       <div class="row-between">
-        <div class="col"><strong style="font-size:.9rem;">Taquilla${a.isPublic?' — Fraternos':''}</strong><span class="hint-text">${a.isPublic?'Con tu identificación de fraterno':'Entrada para este evento'}</span></div>
+        <div class="col"><strong style="font-size:.9rem;">Taquilla — Fraternos</strong><span class="hint-text">Con tu identificación de fraterno</span></div>
         <strong style="font-family:var(--font-mono);font-size:1.1rem;">${money(a.price)}</strong>
       </div>
       <button class="btn btn-accent btn-block" style="margin-top:12px;" onclick="startTicketPurchase('${a.id}')">Comprar como fraterno</button>
     </div>` : '';
 
-  const ticketBlockPublic = (a.requiresTicket && a.isPublic) ? `
+  /* Siempre disponible (no solo en eventos marcados públicos): alguien
+     puede no aparecer en la lista de activos con cuota al día y aun así
+     poder asistir — necesita una forma de comprar escribiendo su nombre. */
+  const ticketBlockGuest = a.requiresTicket ? `
     <div class="card">
       <div class="row-between">
-        <div class="col"><strong style="font-size:.9rem;">Taquilla — Público general</strong><span class="hint-text">No necesitas ser fraterno</span></div>
+        <div class="col"><strong style="font-size:.9rem;">Taquilla — Invitado</strong><span class="hint-text">Escribe tu nombre si no apareces en la lista de activos</span></div>
         <strong style="font-family:var(--font-mono);font-size:1.1rem;">${money(a.price)}</strong>
       </div>
-      <button class="btn btn-primary btn-block" style="margin-top:12px;" onclick="startGuestTicketPurchase('${a.id}')">Comprar como invitado</button>
+      <button class="btn btn-primary btn-block" style="margin-top:12px;" onclick="startGuestTicketPurchase('${a.id}')">Comprar con mi nombre</button>
     </div>` : '';
 
   const catVar = CATS[a.category].color;
@@ -1213,19 +1232,21 @@ function viewActivityDetail(){
       radial-gradient(120% 140% at 8% -10%, color-mix(in srgb, var(${catVar}) 45%, transparent) 0%, transparent 55%),
       radial-gradient(90% 120% at 100% 0%, color-mix(in srgb, var(${catVar}) 25%, transparent) 0%, transparent 55%),
       linear-gradient(165deg, #1c2029 0%, #0c0e12 100%);">
-      <div class="hero-eyebrow">${past ? 'Evento pasado' : fmtDateLong(a.date)}</div>
+      <div class="hero-eyebrow">${CATS[a.category].label}</div>
       <div class="hero-title">${a.title}</div>
-      <div class="hero-meta">📍 ${a.place}</div>
-      <div class="row" style="gap:6px;flex-wrap:wrap;margin-top:12px;">
-        <span class="cat-chip" style="background:rgba(238,241,245,.14);color:var(${catVar});"><span class="cat-dot" style="background:var(${catVar});"></span>${CATS[a.category].label}</span>
+      <div class="detail-meta stack" style="margin-top:14px;gap:8px;">
+        <div class="row" style="gap:10px;"><span style="font-size:1.25rem;line-height:1;">📅</span><span class="detail-meta-text">${fmtDateLong(a.date)}</span></div>
+        <div class="row" style="gap:10px;"><span style="font-size:1.25rem;line-height:1;">📍</span><span class="detail-meta-text">${a.place}</span></div>
+      </div>
+      <div class="row" style="gap:6px;flex-wrap:wrap;margin-top:14px;">
+        ${past ? `<span class="chip" style="background:rgba(238,241,245,.14);color:var(--ink-soft);">Evento pasado</span>` : ''}
         ${a.isPublic ? `<span class="chip" style="background:rgba(238,241,245,.14);color:var(--chrome);">Abierto al público</span>` : ''}
         ${a.proposed ? `<span class="chip" style="background:rgba(251,191,36,.18);color:#ffd479;">Propuesta — por confirmar</span>` : ''}
       </div>
     </div>
     ${a.desc ? `<p class="lede">${a.desc}</p>` : ''}
     ${rsvpBlock}
-    ${ticketBlockFraterno}
-    ${ticketBlockPublic}
+    ${a.isPublic ? ticketBlockGuest + ticketBlockFraterno : ticketBlockFraterno + ticketBlockGuest}
   `;
 }
 
@@ -1273,8 +1294,8 @@ function confirmTicketQty(activityId){
 function startGuestTicketPurchase(activityId){
   const a = byId(ACTIVITIES, activityId);
   openModal(`
-    <h3>Comprar taquilla — Público general</h3>
-    <p class="lede" style="margin-bottom:14px;">${a.title} — ${fmtDateShort(a.date)}. No necesitas ser fraterno para comprar.</p>
+    <h3>Comprar taquilla — Invitado</h3>
+    <p class="lede" style="margin-bottom:14px;">${a.title} — ${fmtDateShort(a.date)}. Compra escribiendo tu nombre, sin necesidad de estar en la lista de activos.</p>
     <div class="stack">
       <div class="field"><label for="gt-name">Nombre completo</label><input id="gt-name" class="input" placeholder="Nombre y apellido"></div>
       <div class="field"><label for="gt-contact">Teléfono o email</label><input id="gt-contact" class="input" placeholder="787-000-0000"></div>
@@ -1334,7 +1355,7 @@ async function confirmAnyTicketStatus(id){
 function openEventFormModal(eventId){
   const editing = eventId ? byId(ACTIVITIES, eventId) : null;
   const catOptions = Object.entries(CATS).map(([k,v])=>`<option value="${k}" ${editing&&editing.category===k?'selected':''}>${v.label}</option>`).join('');
-  const dtValue = editing ? editing.date.slice(0,16) : '';
+  const dtValue = editing ? toDatetimeLocalPR(editing.date) : '';
   openModal(`
     <h3>${editing ? 'Editar evento' : 'Nuevo evento'}</h3>
     <div class="stack">
@@ -1366,7 +1387,10 @@ async function saveEventForm(eventId){
   const price = parseFloat(document.getElementById('ev-price').value) || 0;
   const errEl = document.getElementById('ev-error');
   if(!title || !dt || !place){ errEl.textContent='Completa título, fecha y lugar.'; errEl.style.display='block'; return; }
-  const isoDate = dt.length===16 ? dt+':00' : dt;
+  /* El input datetime-local no lleva zona horaria — la directiva siempre
+     escribe en hora de Puerto Rico (UTC-4, sin horario de verano), así
+     que se fija ese offset explícito al construir el instante UTC real. */
+  const isoDate = dt.length===16 ? dt+':00-04:00' : dt;
   const payload = {
     title, date:isoDate, location:place, description:desc, category,
     is_public:isPublic, requires_ticket:requiresTicket, price,
@@ -1842,10 +1866,22 @@ function viewAdmin(){
     </div>
     <h1 class="page-title">Directiva</h1>
     <div class="stat-grid">
-      <div class="stat-card"><div class="stat-num">${totalActivos}</div><div class="stat-label">Total activos</div></div>
-      <div class="stat-card"><div class="stat-num">${confirmedNext}/${totalActivos}</div><div class="stat-label">Confirmados próx. actividad</div></div>
-      <div class="stat-card"><div class="stat-num" style="color:${pendingFines>0?'var(--danger)':'var(--ink)'};">${pendingFines}</div><div class="stat-label">Multas pendientes</div></div>
-      <div class="stat-card"><div class="stat-num">${money(salesMonth)}</div><div class="stat-label">Ventas registradas</div></div>
+      <div class="stat-card" style="border-left:3px solid var(--accent);">
+        <div class="row-between"><div class="stat-num">${totalActivos}</div><span style="font-size:1.15rem;opacity:.7;">👥</span></div>
+        <div class="stat-label">Total activos</div>
+      </div>
+      <div class="stat-card" style="border-left:3px solid var(--cat-capitular);">
+        <div class="row-between"><div class="stat-num">${confirmedNext}/${totalActivos}</div><span style="font-size:1.15rem;opacity:.7;">✅</span></div>
+        <div class="stat-label">Confirmados próx. actividad</div>
+      </div>
+      <div class="stat-card" style="border-left:3px solid ${pendingFines>0?'var(--danger)':'var(--border)'};">
+        <div class="row-between"><div class="stat-num" style="color:${pendingFines>0?'var(--danger)':'var(--ink)'};">${pendingFines}</div><span style="font-size:1.15rem;opacity:.7;">⚠️</span></div>
+        <div class="stat-label">Multas pendientes</div>
+      </div>
+      <div class="stat-card" style="border-left:3px solid var(--success);">
+        <div class="row-between"><div class="stat-num">${money(salesMonth)}</div><span style="font-size:1.15rem;opacity:.7;">💵</span></div>
+        <div class="stat-label">Ventas registradas</div>
+      </div>
     </div>
     <div class="banner">
       <div>ℹ️</div>
