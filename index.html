@@ -1316,7 +1316,7 @@ function viewActivityDetail(){
     <button class="btn btn-ghost btn-block" onclick="downloadICS('${a.id}')">📅 Agregar a mi calendario</button>
     ${a.desc ? `<p class="lede">${a.desc}</p>` : ''}
     ${ticketBlocks}
-    ${rsvpBlock}
+    ${a.requiresTicket ? '' : rsvpBlock}
   `;
 }
 
