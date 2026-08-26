@@ -196,6 +196,9 @@
   .hero-title{font-family:var(--font-display);font-size:1.5rem;font-weight:700;margin:6px 0 2px;text-wrap:balance;position:relative;letter-spacing:-.01em;}
   .hero-meta{font-size:.8rem;color:rgba(245,246,248,.65);position:relative;}
   .detail-meta-text{font-size:1.05rem;font-weight:600;color:var(--on-navy);position:relative;line-height:1.3;}
+  .corner-date-num{font-family:var(--font-display);font-size:2.4rem;font-weight:800;line-height:1;position:relative;color:var(--on-navy);}
+  .corner-date-month{font-family:var(--font-mono);font-size:.75rem;font-weight:700;letter-spacing:.1em;color:var(--chrome);position:relative;margin-top:2px;}
+  .corner-time{font-family:var(--font-display);font-size:1.7rem;font-weight:800;line-height:1;position:relative;color:var(--on-navy);}
   .rsvp-actions{display:flex;gap:8px;margin-top:16px;position:relative;flex-wrap:wrap;}
 
   .list-item{
@@ -349,15 +352,22 @@
   .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
   .cal-dow{font-size:.6rem;font-weight:700;text-transform:uppercase;color:var(--ink-faint);text-align:center;padding-bottom:3px;}
   .cal-cell{
-    aspect-ratio:1;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
-    font-size:.74rem;color:var(--ink);cursor:default;background:var(--surface-2);border:1px solid transparent;
+    min-height:58px;border-radius:10px;padding:4px 3px;
+    display:flex;flex-direction:column;align-items:stretch;gap:2px;
+    font-size:.72rem;color:var(--ink);cursor:default;background:var(--surface-2);border:1px solid transparent;
+    overflow:hidden;
   }
   .cal-cell.other-month{color:var(--ink-faint);opacity:.35;background:transparent;}
-  .cal-cell.today{border-color:var(--accent);font-weight:800;color:var(--accent-strong);}
+  .cal-cell.today{border-color:var(--accent);}
+  .cal-daynum{font-size:.72rem;font-weight:700;text-align:center;}
+  .cal-cell.today .cal-daynum{color:var(--accent-strong);font-weight:800;}
   .cal-cell.has-event{cursor:pointer;}
   .cal-cell.has-event:active{opacity:.6;}
-  .cal-dots{display:flex;gap:2px;justify-content:center;flex-wrap:wrap;max-width:20px;}
-  .cal-dot-mini{width:5px;height:5px;border-radius:50%;}
+  .cal-event-chip{
+    font-size:.56rem;line-height:1.3;font-weight:700;padding:1px 4px;border-radius:4px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#0b0c0f;
+  }
+  .cal-event-more{font-size:.56rem;color:var(--ink-faint);text-align:center;}
 
   /* ---------- Splash ---------- */
   #splash{
@@ -610,6 +620,16 @@ function fmtDateLong(iso){
 function fmtDateShort(iso){
   const d = new Date(iso);
   return d.toLocaleDateString('es-PR', {day:'numeric', month:'short', timeZone:PR_TZ});
+}
+/* Partes sueltas para el layout de "esquinas" del detalle de evento:
+   día/mes grande en una esquina, hora grande en la otra. */
+function fmtDateParts(iso){
+  const d = new Date(iso);
+  const day = d.toLocaleDateString('es-PR', {day:'numeric', timeZone:PR_TZ});
+  const month = d.toLocaleDateString('en-US', {month:'short', timeZone:PR_TZ}).toUpperCase().replace('.','');
+  const weekday = d.toLocaleDateString('es-PR', {weekday:'long', timeZone:PR_TZ});
+  const time = d.toLocaleTimeString('es-PR', {hour:'numeric', minute:'2-digit', timeZone:PR_TZ});
+  return {day, month, weekday, time};
 }
 /* Convierte un instante UTC guardado a la hora de pared en Puerto Rico
    que espera un <input type="datetime-local">, para que al editar un
@@ -966,6 +986,40 @@ async function setRsvp(activityId, status, excuse){
 }
 function goRoute(route){ state.route=route; state.selectedActivity=null; state.selectedProduct=null; window.scrollTo(0,0); render(); }
 function openActivity(id){ state.selectedActivity=id; state.route='activity'; render(); }
+
+/* Exporta un evento como .ics para que el fraterno lo guarde en su
+   calendario (Apple Calendar, Google Calendar, Outlook...). Se navega
+   directo al blob (sin atributo download) porque así iOS/Safari
+   reconoce el mime text/calendar y ofrece "Agregar a Calendario" en
+   vez de solo descargar el archivo. */
+function icsEscapeText(s){
+  return String(s||'').replace(/\\/g,'\\\\').replace(/\n/g,'\\n').replace(/,/g,'\\,').replace(/;/g,'\\;');
+}
+function toICSDateUTC(date){
+  return date.toISOString().replace(/[-:]/g,'').split('.')[0]+'Z';
+}
+function downloadICS(activityId){
+  const a = byId(ACTIVITIES, activityId);
+  if(!a) return;
+  const start = new Date(a.date);
+  const end = new Date(start.getTime() + 60*60*1000);
+  const ics = [
+    'BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Zeta Hub//ES','CALSCALE:GREGORIAN',
+    'BEGIN:VEVENT',
+    `UID:${a.id}@zetahub.app`,
+    `DTSTAMP:${toICSDateUTC(new Date())}`,
+    `DTSTART:${toICSDateUTC(start)}`,
+    `DTEND:${toICSDateUTC(end)}`,
+    `SUMMARY:${icsEscapeText(a.title)}`,
+    `LOCATION:${icsEscapeText(a.place)}`,
+    `DESCRIPTION:${icsEscapeText(a.desc)}`,
+    'END:VEVENT','END:VCALENDAR',
+  ].join('\r\n');
+  const blob = new Blob([ics], {type:'text/calendar;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  window.location.href = url;
+  setTimeout(()=>URL.revokeObjectURL(url), 4000);
+}
 /* Clic en un día del calendario: si hay un solo evento entra directo, si
    hay varios muestra un modal para elegir cuál abrir. */
 function openDayEvents(ids){
@@ -1150,10 +1204,13 @@ function viewEvents(){
             const isToday = sameDay(c.date, NOW);
             const cls = ['cal-cell', c.other?'other-month':'', isToday?'today':'', dayEvents.length?'has-event':''].filter(Boolean).join(' ');
             const onclick = dayEvents.length ? `onclick='openDayEvents(${JSON.stringify(dayEvents.map(a=>a.id))})'` : '';
+            const shownEvents = dayEvents.slice(0,2);
+            const extraCount = dayEvents.length - shownEvents.length;
             return `<div class="${cls}" ${onclick}>
-              <span>${c.date.getDate()}</span>
-              ${dayEvents.length ? `<div class="cal-dots">${dayEvents.slice(0,4).map(a=>`<span class="cal-dot-mini" style="background:var(${CATS[a.category].color});"></span>`).join('')}</div>` : ''}
-              ${dayBirthdays.length ? `<span style="font-size:.55rem;line-height:1;">🎂</span>` : ''}
+              <span class="cal-daynum">${c.date.getDate()}</span>
+              ${shownEvents.map(a=>`<span class="cal-event-chip" style="background:var(${CATS[a.category].color});">${a.title}</span>`).join('')}
+              ${extraCount>0 ? `<span class="cal-event-more">+${extraCount} más</span>` : ''}
+              ${dayBirthdays.length ? `<span style="font-size:.6rem;line-height:1;text-align:center;">🎂</span>` : ''}
             </div>`;
           }).join('')}
         </div>
@@ -1226,27 +1283,37 @@ function viewActivityDetail(){
     </div>` : '';
 
   const catVar = CATS[a.category].color;
+  const dp = fmtDateParts(a.date);
+  const ticketBlocks = a.requiresTicket ? (a.isPublic ? ticketBlockGuest + ticketBlockFraterno : ticketBlockFraterno + ticketBlockGuest) : '';
   return `
     <button class="btn btn-ghost btn-sm" style="align-self:flex-start;" onclick="goRoute('events')">← Eventos</button>
     <div class="hero-activity" style="background:
       radial-gradient(120% 140% at 8% -10%, color-mix(in srgb, var(${catVar}) 45%, transparent) 0%, transparent 55%),
       radial-gradient(90% 120% at 100% 0%, color-mix(in srgb, var(${catVar}) 25%, transparent) 0%, transparent 55%),
       linear-gradient(165deg, #1c2029 0%, #0c0e12 100%);">
-      <div class="hero-eyebrow">${CATS[a.category].label}</div>
-      <div class="hero-title">${a.title}</div>
-      <div class="detail-meta stack" style="margin-top:14px;gap:8px;">
-        <div class="row" style="gap:10px;"><span style="font-size:1.25rem;line-height:1;">📅</span><span class="detail-meta-text">${fmtDateLong(a.date)}</span></div>
-        <div class="row" style="gap:10px;"><span style="font-size:1.25rem;line-height:1;">📍</span><span class="detail-meta-text">${a.place}</span></div>
+      <div class="row-between" style="align-items:flex-start;">
+        <div class="col" style="gap:0;">
+          <div class="corner-date-num">${dp.day}</div>
+          <div class="corner-date-month">${dp.month}</div>
+        </div>
+        <div class="col" style="gap:0;align-items:flex-end;text-align:right;">
+          <div class="corner-time">${dp.time}</div>
+          <div class="hero-eyebrow" style="margin:2px 0 0;">${dp.weekday}</div>
+        </div>
       </div>
+      <div class="hero-title" style="margin-top:16px;">${a.title}</div>
+      <div class="detail-meta-text" style="margin-top:6px;">📍 ${a.place}</div>
       <div class="row" style="gap:6px;flex-wrap:wrap;margin-top:14px;">
+        <span class="cat-chip" style="background:rgba(238,241,245,.14);color:var(${catVar});"><span class="cat-dot" style="background:var(${catVar});"></span>${CATS[a.category].label}</span>
         ${past ? `<span class="chip" style="background:rgba(238,241,245,.14);color:var(--ink-soft);">Evento pasado</span>` : ''}
         ${a.isPublic ? `<span class="chip" style="background:rgba(238,241,245,.14);color:var(--chrome);">Abierto al público</span>` : ''}
         ${a.proposed ? `<span class="chip" style="background:rgba(251,191,36,.18);color:#ffd479;">Propuesta — por confirmar</span>` : ''}
       </div>
     </div>
+    <button class="btn btn-ghost btn-block" onclick="downloadICS('${a.id}')">📅 Agregar a mi calendario</button>
     ${a.desc ? `<p class="lede">${a.desc}</p>` : ''}
+    ${ticketBlocks}
     ${rsvpBlock}
-    ${a.isPublic ? ticketBlockGuest + ticketBlockFraterno : ticketBlockFraterno + ticketBlockGuest}
   `;
 }
 
