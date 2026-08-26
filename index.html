@@ -199,6 +199,8 @@
   .corner-date-num{font-family:var(--font-display);font-size:2.4rem;font-weight:800;line-height:1;position:relative;color:var(--on-navy);}
   .corner-date-month{font-family:var(--font-mono);font-size:.75rem;font-weight:700;letter-spacing:.1em;color:var(--chrome);position:relative;margin-top:2px;}
   .corner-time{font-family:var(--font-display);font-size:1.7rem;font-weight:800;line-height:1;position:relative;color:var(--on-navy);}
+  .purchase-card{border-color:var(--border);}
+  .purchase-price{font-family:var(--font-display);font-size:1.4rem;font-weight:800;color:var(--on-navy);flex-shrink:0;}
   .rsvp-actions{display:flex;gap:8px;margin-top:16px;position:relative;flex-wrap:wrap;}
 
   .list-item{
@@ -501,6 +503,7 @@ const state = {
   eventsView:'lista',
   calendarMonth:new Date(NOW.getFullYear(), NOW.getMonth(), 1),
   purchases:[],
+  publicPurchases:[],
   tickets:[],
   publicTickets:[],
   fineOverrides:{}, // key `${activityId}:${memberId}` -> 'pagada' | 'exonerada'
@@ -512,7 +515,7 @@ const state = {
 async function loadFromSupabase(){
   state.loading = true; state.loadError = null; render();
   try{
-    const [acts, mems, shop, docs, rsvps, fines, purchases, tickets, publicTickets] = await Promise.all([
+    const [acts, mems, shop, docs, rsvps, fines, purchases, publicPurchases, tickets, publicTickets] = await Promise.all([
       sb('activities?select=*&order=date.asc'),
       sbRpc('list_members'),
       sb('shop_items?select=*'),
@@ -520,6 +523,7 @@ async function loadFromSupabase(){
       sb('rsvps?select=*'),
       sb('fines?select=*'),
       sb('purchases?select=*&order=created_at.desc'),
+      sb('public_purchases?select=*&order=created_at.desc'),
       sb('tickets?select=*&order=created_at.desc'),
       sb('public_tickets?select=*&order=created_at.desc'),
     ]);
@@ -541,6 +545,15 @@ async function loadFromSupabase(){
       const item = byId(SHOP_ITEMS, r.item_id);
       state.purchases.push({
         id:r.id, memberId:r.member_id, kind:'tienda', item: item?item.name:'(producto eliminado)',
+        detail:'—', qty:r.qty, total:r.qty*(item?item.price:0), method:'—',
+        status:r.status, date:(r.created_at||'').slice(0,10),
+      });
+    });
+    state.publicPurchases.length = 0;
+    (publicPurchases||[]).forEach(r=>{
+      const item = byId(SHOP_ITEMS, r.item_id);
+      state.publicPurchases.push({
+        id:r.id, guestName:r.guest_name, guestContact:r.guest_contact, item: item?item.name:'(producto eliminado)',
         detail:'—', qty:r.qty, total:r.qty*(item?item.price:0), method:'—',
         status:r.status, date:(r.created_at||'').slice(0,10),
       });
@@ -849,6 +862,7 @@ function openPaymentModal(kind, opts){
 }
 function payWith(kind, method){
   const opts = window.__pendingPayment;
+  closeModal();
   if(method==='ATH Móvil'){
     openModal(`
       <h3>ATH Móvil</h3>
@@ -1056,6 +1070,20 @@ function eventTicketCardHtml(a, opts){
     </div>`;
 }
 
+/* Tarjeta de compra (taquillas de evento y productos de tienda comparten
+   el mismo look, a tono con la boleta/hero de arriba). */
+function purchaseCardHtml(opts){
+  return `
+    <div class="card purchase-card" style="background:linear-gradient(160deg, color-mix(in srgb, var(${opts.tintVar}) 12%, var(--surface-2)) 0%, var(--surface-2) 100%);">
+      <div class="row-between" style="align-items:flex-start;gap:10px;">
+        <div class="hero-eyebrow" style="margin:0;">${opts.icon} ${opts.label}</div>
+        <span class="purchase-price">${money(opts.price)}</span>
+      </div>
+      <p class="hint-text" style="margin:6px 0 0;">${opts.hint}</p>
+      <button class="btn ${opts.btnClass} btn-block" style="margin-top:14px;" onclick="${opts.onclick}">${opts.btnLabel}</button>
+    </div>`;
+}
+
 function openDayEvents(ids){
   if(!ids || !ids.length) return;
   const acts = ids.map(id=>byId(ACTIVITIES,id)).filter(Boolean).sort((a,b)=>new Date(a.date)-new Date(b.date));
@@ -1099,14 +1127,16 @@ function toggleFineStatus(key){
 function exonerateFine(key){
   setFineOverride(key, state.fineOverrides[key]==='exonerada' ? undefined : 'exonerada');
 }
-async function confirmPurchaseStatus(list, id){
-  const o = list.find(x=>x.id===id);
+async function confirmAnyPurchaseStatus(id){
+  let o = state.purchases.find(x=>x.id===id);
+  let table = 'purchases';
+  if(!o){ o = state.publicPurchases.find(x=>x.id===id); table = 'public_purchases'; }
   if(!o) return;
   const prev = o.status;
   o.status = o.status==='Pagado' ? 'Pendiente de confirmar' : 'Pagado';
   render();
   try{
-    await sb(`purchases?id=eq.${id}`, {method:'PATCH', headers:{'Prefer':'return=minimal'}, body: JSON.stringify({status:o.status})});
+    await sb(`${table}?id=eq.${id}`, {method:'PATCH', headers:{'Prefer':'return=minimal'}, body: JSON.stringify({status:o.status})});
   }catch(err){
     console.error(err);
     o.status = prev; render();
@@ -1288,26 +1318,18 @@ function viewActivityDetail(){
       <p class="hint-text" style="margin-top:10px;">Si no vas sin excusa aprobada, la directiva puede aplicar multa según el reglamento.</p>
     </div>`;
 
-  const ticketBlockFraterno = a.requiresTicket ? `
-    <div class="card">
-      <div class="row-between">
-        <div class="col"><strong style="font-size:.9rem;">Taquilla — Fraternos</strong><span class="hint-text">Con tu identificación de fraterno</span></div>
-        <strong style="font-family:var(--font-mono);font-size:1.1rem;">${money(a.price)}</strong>
-      </div>
-      <button class="btn btn-accent btn-block" style="margin-top:12px;" onclick="startTicketPurchase('${a.id}')">Comprar como fraterno</button>
-    </div>` : '';
+  const ticketBlockFraterno = a.requiresTicket ? purchaseCardHtml({
+    icon:'🎟️', label:'Taquilla — Fraternos', hint:'Con tu identificación de fraterno', price:a.price,
+    btnClass:'btn-accent', btnLabel:'Comprar como fraterno', onclick:`startTicketPurchase('${a.id}')`, tintVar:CATS[a.category].color,
+  }) : '';
 
   /* Siempre disponible (no solo en eventos marcados públicos): alguien
      puede no aparecer en la lista de activos con cuota al día y aun así
      poder asistir — necesita una forma de comprar escribiendo su nombre. */
-  const ticketBlockGuest = a.requiresTicket ? `
-    <div class="card">
-      <div class="row-between">
-        <div class="col"><strong style="font-size:.9rem;">Taquilla — Invitado</strong><span class="hint-text">Escribe tu nombre si no apareces en la lista de activos</span></div>
-        <strong style="font-family:var(--font-mono);font-size:1.1rem;">${money(a.price)}</strong>
-      </div>
-      <button class="btn btn-primary btn-block" style="margin-top:12px;" onclick="startGuestTicketPurchase('${a.id}')">Comprar con mi nombre</button>
-    </div>` : '';
+  const ticketBlockGuest = a.requiresTicket ? purchaseCardHtml({
+    icon:'🎟️', label:'Taquilla — Invitado', hint:'Escribe tu nombre si no apareces en la lista de activos', price:a.price,
+    btnClass:'btn-primary', btnLabel:'Comprar con mi nombre', onclick:`startGuestTicketPurchase('${a.id}')`, tintVar:CATS[a.category].color,
+  }) : '';
 
   const ticketBlocks = a.requiresTicket ? (a.isPublic ? ticketBlockGuest + ticketBlockFraterno : ticketBlockFraterno + ticketBlockGuest) : '';
   return `
@@ -1539,37 +1561,49 @@ function viewShop(){
 
 function viewProduct(){
   const p = byId(SHOP_ITEMS, state.selectedProduct);
-  const sizeOptions = p.sizes ? `
-    <div class="field">
-      <label for="prod-size">Talla</label>
-      <select id="prod-size" class="input">${p.sizes.map(s=>`<option>${s}</option>`).join('')}</select>
-    </div>` : '';
   return `
     <button class="btn btn-ghost btn-sm" style="align-self:flex-start;" onclick="goRoute('shop')">← Tienda</button>
     <div class="product-hero-img">${p.imageUrl ? `<img src="${p.imageUrl}" alt="${p.name}">` : p.name.split(' ').map(w=>w[0]).slice(0,2).join('')}</div>
     <div class="eyebrow">Tienda</div>
     <h1 class="page-title">${p.name}</h1>
     <p class="lede">${p.blurb}</p>
-    <div class="card stack">
-      <div class="row-between">
-        <span class="hint-text">Precio</span>
-        <strong style="font-family:var(--font-mono);font-size:1.2rem;">${money(p.price)}</strong>
-      </div>
-      ${sizeOptions}
-      <div class="field">
-        <label for="prod-qty">Cantidad</label>
-        <select id="prod-qty" class="input">${[1,2,3].map(n=>`<option>${n}</option>`).join('')}</select>
-      </div>
-      <button class="btn btn-accent btn-block" onclick="startProductPurchase('${p.id}')">Comprar</button>
-    </div>
+    ${purchaseCardHtml({
+      icon:'🛍️', label:'Comprar — Fraternos', hint:'Con tu identificación de fraterno', price:p.price,
+      btnClass:'btn-accent', btnLabel:'Comprar como fraterno', onclick:`startProductPurchase('${p.id}')`, tintVar:'--accent',
+    })}
+    ${purchaseCardHtml({
+      icon:'🛍️', label:'Comprar — Invitado', hint:'Escribe tu nombre, no necesitas ser fraterno', price:p.price,
+      btnClass:'btn-primary', btnLabel:'Comprar con mi nombre', onclick:`startGuestProductPurchase('${p.id}')`, tintVar:'--accent',
+    })}
   `;
+}
+function productSizeField(p, idPrefix){
+  return p.sizes ? `
+    <div class="field">
+      <label for="${idPrefix}-size">Talla</label>
+      <select id="${idPrefix}-size" class="input">${p.sizes.map(s=>`<option>${s}</option>`).join('')}</select>
+    </div>` : '';
 }
 function startProductPurchase(productId){
   if(!state.currentMemberId) return openIdentifyModal();
   const p = byId(SHOP_ITEMS, productId);
+  openModal(`
+    <h3>Comprar como fraterno</h3>
+    <p class="lede" style="margin-bottom:14px;">${p.name} — ${money(p.price)}</p>
+    <div class="stack">
+      ${productSizeField(p,'prod')}
+      <div class="field"><label for="prod-qty">Cantidad</label><select id="prod-qty" class="input">${[1,2,3].map(n=>`<option value="${n}">${n} — ${money(n*p.price)}</option>`).join('')}</select></div>
+      <button class="btn btn-accent btn-block" onclick="confirmProductQty('${productId}')">Continuar al pago</button>
+      <button class="btn btn-ghost btn-block" onclick="closeModal()">Cancelar</button>
+    </div>
+  `);
+}
+function confirmProductQty(productId){
+  const p = byId(SHOP_ITEMS, productId);
   const size = p.sizes ? document.getElementById('prod-size').value : null;
   const qty = parseInt(document.getElementById('prod-qty').value, 10);
   const memberId = state.currentMemberId;
+  closeModal();
   openPaymentModal('tienda', {
     label:`${qty}× ${p.name}${size?' ('+size+')':''}`,
     amount: qty*p.price,
@@ -1580,6 +1614,50 @@ function startProductPurchase(productId){
         })});
         const r = rows[0];
         state.purchases.push({id:r.id, memberId:r.member_id, kind:'tienda', item:p.name, detail:size||'—', qty:r.qty, total:qty*p.price, method, status:r.status, date:(r.created_at||todayISO()).slice(0,10)});
+      }catch(err){
+        console.error(err);
+        alert('No se pudo guardar la compra en el servidor. Intenta de nuevo.');
+      }
+      render();
+    }
+  });
+}
+
+/* ---- Compra de tienda como invitado (sin cuenta/PIN) ---- */
+function startGuestProductPurchase(productId){
+  const p = byId(SHOP_ITEMS, productId);
+  openModal(`
+    <h3>Comprar como invitado</h3>
+    <p class="lede" style="margin-bottom:14px;">${p.name} — ${money(p.price)}. No necesitas ser fraterno para comprar.</p>
+    <div class="stack">
+      <div class="field"><label for="gtp-name">Nombre completo</label><input id="gtp-name" class="input" placeholder="Nombre y apellido"></div>
+      <div class="field"><label for="gtp-contact">Teléfono o email</label><input id="gtp-contact" class="input" placeholder="787-000-0000"></div>
+      ${productSizeField(p,'gtp')}
+      <div class="field"><label for="gtp-qty">Cantidad</label><select id="gtp-qty" class="input">${[1,2,3].map(n=>`<option value="${n}">${n} — ${money(n*p.price)}</option>`).join('')}</select></div>
+      <p id="gtp-error" class="error-text" style="display:none;">Escribe tu nombre y contacto.</p>
+      <button class="btn btn-primary btn-block" onclick="confirmGuestProductQty('${productId}')">Continuar al pago</button>
+      <button class="btn btn-ghost btn-block" onclick="closeModal()">Cancelar</button>
+    </div>
+  `);
+}
+function confirmGuestProductQty(productId){
+  const name = document.getElementById('gtp-name').value.trim();
+  const contact = document.getElementById('gtp-contact').value.trim();
+  if(!name || !contact){ document.getElementById('gtp-error').style.display='block'; return; }
+  const p = byId(SHOP_ITEMS, productId);
+  const size = p.sizes ? document.getElementById('gtp-size').value : null;
+  const qty = parseInt(document.getElementById('gtp-qty').value, 10);
+  closeModal();
+  openPaymentModal('tienda-invitado', {
+    label:`${qty}× ${p.name}${size?' ('+size+')':''}`,
+    amount: qty*p.price,
+    onConfirm: async (method, status)=>{
+      try{
+        const rows = await sb('public_purchases', {method:'POST', headers:{'Prefer':'return=representation'}, body: JSON.stringify({
+          item_id: productId, guest_name:name, guest_contact:contact, qty, status,
+        })});
+        const r = rows[0];
+        state.publicPurchases.push({id:r.id, guestName:r.guest_name, guestContact:r.guest_contact, item:p.name, detail:size||'—', qty:r.qty, total:qty*p.price, method, status:r.status, date:(r.created_at||todayISO()).slice(0,10)});
       }catch(err){
         console.error(err);
         alert('No se pudo guardar la compra en el servidor. Intenta de nuevo.');
@@ -1922,7 +2000,7 @@ function viewAdmin(){
   const next = nextActivity(ACTIVITIES);
   const confirmedNext = next ? MEMBERS.filter(m=>rsvpStatusFor(next, m.id)==='voy').length : 0;
   const pendingFines = allFines().filter(f=>!f.paid).length;
-  const salesMonth = state.purchases.reduce((s,p)=>s+p.total,0) + state.tickets.reduce((s,t)=>s+t.total,0) + state.publicTickets.reduce((s,t)=>s+t.total,0);
+  const salesMonth = state.purchases.reduce((s,p)=>s+p.total,0) + state.publicPurchases.reduce((s,p)=>s+p.total,0) + state.tickets.reduce((s,t)=>s+t.total,0) + state.publicTickets.reduce((s,t)=>s+t.total,0);
 
   const tabs = [
     ['eventos','Eventos'],['asistencia','Asistencia'],['productos','Productos'],['tienda','Ventas'],
@@ -2065,18 +2143,23 @@ function adminTabContent(){
   }
 
   if(state.adminTab==='tienda'){
-    if(!state.purchases.length) return `<div class="empty-state">No hay compras todavía.</div>`;
+    const allPurchases = [
+      ...state.purchases.map(p=>({...p, who:member(p.memberId).name, kind:'Fraterno'})),
+      ...state.publicPurchases.map(p=>({...p, who:`${p.guestName} (${p.guestContact})`, kind:'Invitado'})),
+    ].sort((a,b)=> new Date(b.date)-new Date(a.date));
+    if(!allPurchases.length) return `<div class="empty-state">No hay compras todavía.</div>`;
     return `<div class="table-wrap"><table>
-      <thead><tr><th>Activo</th><th>Producto</th><th>Detalle</th><th class="num">Total</th><th>Método</th><th>Estatus</th><th></th></tr></thead>
-      <tbody>${state.purchases.map(p=>`
+      <thead><tr><th>Comprador</th><th>Tipo</th><th>Producto</th><th>Detalle</th><th class="num">Total</th><th>Método</th><th>Estatus</th><th></th></tr></thead>
+      <tbody>${allPurchases.map(p=>`
         <tr>
-          <td>${member(p.memberId).name}</td>
+          <td>${p.who}</td>
+          <td><span class="chip ${p.kind==='Invitado'?'chip-accent':'chip-neutral'}">${p.kind}</span></td>
           <td>${p.item}</td>
           <td>${p.detail} ×${p.qty}</td>
           <td class="num">${money(p.total)}</td>
           <td>${p.method}</td>
           <td><span class="chip ${p.status==='Pagado'?'chip-success':'chip-warning'}">${p.status}</span></td>
-          <td>${p.status!=='Pagado'?`<button class="btn btn-ghost btn-sm" onclick="confirmPurchaseStatus(state.purchases,'${p.id}')">Confirmar</button>`:''}</td>
+          <td>${p.status!=='Pagado'?`<button class="btn btn-ghost btn-sm" onclick="confirmAnyPurchaseStatus('${p.id}')">Confirmar</button>`:''}</td>
         </tr>`).join('')}</tbody>
     </table></div>`;
   }
