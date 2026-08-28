@@ -475,6 +475,7 @@ function mapActivityRow(r){
     id:r.id, title:r.title, date:r.date, place:r.location||'Por confirmar',
     desc:r.description||'', category:r.category, isPublic:!!r.is_public,
     requiresTicket:!!r.requires_ticket, price:Number(r.price)||0,
+    ticketTiers: Array.isArray(r.ticket_tiers) ? r.ticket_tiers : [],
     proposed:!!r.proposed, rsvps:{},
   };
 }
@@ -482,6 +483,7 @@ function applyActivityRow(target, r){
   target.title=r.title; target.date=r.date; target.place=r.location||'Por confirmar';
   target.desc=r.description||''; target.category=r.category; target.isPublic=!!r.is_public;
   target.requiresTicket=!!r.requires_ticket; target.price=Number(r.price)||0; target.proposed=!!r.proposed;
+  target.ticketTiers = Array.isArray(r.ticket_tiers) ? r.ticket_tiers : [];
 }
 function mapShopRow(r){
   return {id:r.id, name:r.name, price:Number(r.price)||0, sizes:null, blurb:r.description||'', imageUrl:r.image_url||''};
@@ -561,17 +563,21 @@ async function loadFromSupabase(){
     state.tickets.length = 0;
     (tickets||[]).forEach(r=>{
       const act = byId(ACTIVITIES, r.activity_id);
+      const tier = act && r.tier_label ? act.ticketTiers.find(t=>t.label===r.tier_label) : null;
+      const unit = tier ? tier.price : (act ? act.price : 0);
       state.tickets.push({
         id:r.id, memberId:r.member_id, activityId:r.activity_id, qty:r.qty,
-        total:r.qty*(act?act.price:0), method:'—', status:r.status, date:(r.created_at||'').slice(0,10),
+        total:r.qty*unit, method:'—', status:r.status, tierLabel:r.tier_label, proofUrl:r.payment_proof_url, date:(r.created_at||'').slice(0,10),
       });
     });
     state.publicTickets.length = 0;
     (publicTickets||[]).forEach(r=>{
       const act = byId(ACTIVITIES, r.activity_id);
+      const tier = act && r.tier_label ? act.ticketTiers.find(t=>t.label===r.tier_label) : null;
+      const unit = tier ? tier.price : (act ? act.price : 0);
       state.publicTickets.push({
         id:r.id, guestName:r.guest_name, guestContact:r.guest_contact, activityId:r.activity_id,
-        qty:r.qty, total:r.qty*(act?act.price:0), method:'—', status:r.status, date:(r.created_at||'').slice(0,10),
+        qty:r.qty, total:r.qty*unit, method:'—', status:r.status, tierLabel:r.tier_label, proofUrl:r.payment_proof_url, date:(r.created_at||'').slice(0,10),
       });
     });
   }catch(err){
@@ -922,12 +928,22 @@ function openPaymentModal(kind, opts){
 function payWith(kind, method){
   const opts = window.__pendingPayment;
   closeModal();
+  window.__proofUrl = null;
   if(method==='ATH Móvil'){
+    /* Solo taquillas exigen foto de comprobante antes de continuar —
+       eso fue lo que se pidió; compras de tienda no cambian. */
+    const requiresProof = kind.startsWith('taquilla');
     openModal(`
       <h3>ATH Móvil</h3>
-      <p class="lede" style="margin-bottom:10px;">Envía <strong style="color:var(--ink);">${money(opts.amount)}</strong> al <strong style="color:var(--ink);">787-555-ZETA</strong> con tu nombre en el mensaje. Luego confirma aquí.</p>
+      <p class="lede" style="margin-bottom:10px;">Envía <strong style="color:var(--ink);">${money(opts.amount)}</strong> al <strong style="color:var(--ink);">787-555-ZETA</strong> con tu nombre en el mensaje.${requiresProof ? ' Sube una captura de la confirmación para poder continuar.' : ' Luego confirma aquí.'}</p>
       <div class="stack">
-        <button class="btn btn-accent btn-block" onclick="confirmPayment('${method}')">Ya envié el pago</button>
+        ${requiresProof ? `
+        <div class="field">
+          <label for="proof-file">Captura de confirmación</label>
+          <input id="proof-file" type="file" accept="image/*" class="input" onchange="handleProofFileChange()">
+        </div>
+        <p id="proof-status" class="hint-text"></p>` : ''}
+        <button id="proof-confirm-btn" class="btn btn-accent btn-block" ${requiresProof?'disabled':''} onclick="confirmPayment('${method}')">Ya envié el pago</button>
         <button class="btn btn-ghost btn-block" onclick="closeModal()">Cancelar</button>
       </div>
       <p class="hint-text" style="margin-top:10px;">Tu compra queda "pendiente de confirmar" hasta que la directiva verifique el pago.</p>
@@ -948,10 +964,39 @@ function payWith(kind, method){
     `);
   }
 }
+/* Sube la captura de ATH Móvil a Supabase Storage (bucket público
+   payment-proofs) apenas se elige el archivo, y solo habilita el botón
+   de confirmar una vez que la subida termina. */
+async function handleProofFileChange(){
+  const fileInput = document.getElementById('proof-file');
+  const statusEl = document.getElementById('proof-status');
+  const btn = document.getElementById('proof-confirm-btn');
+  const file = fileInput.files[0];
+  if(!file) return;
+  btn.disabled = true;
+  statusEl.textContent = 'Subiendo...';
+  try{
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g,'') || 'jpg';
+    const path = `proofs/${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
+    const res = await fetch(`${SUPABASE_URL}/storage/v1/object/payment-proofs/${path}`, {
+      method:'POST',
+      headers:{ apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': file.type||'image/jpeg' },
+      body: file,
+    });
+    if(!res.ok) throw new Error(await res.text());
+    window.__proofUrl = `${SUPABASE_URL}/storage/v1/object/public/payment-proofs/${path}`;
+    statusEl.textContent = '✓ Comprobante subido';
+    btn.disabled = false;
+  }catch(err){
+    console.error(err);
+    statusEl.textContent = 'No se pudo subir la imagen. Intenta de nuevo.';
+    btn.disabled = true;
+  }
+}
 function confirmPayment(method){
   const opts = window.__pendingPayment;
   const status = method==='ATH Móvil' ? 'Pendiente de confirmar' : 'Pagado';
-  opts.onConfirm(method, status);
+  opts.onConfirm(method, status, window.__proofUrl);
   closeModal();
   openModal(`
     <div style="text-align:center;padding:10px 4px;">
@@ -1132,11 +1177,12 @@ function eventTicketCardHtml(a, opts){
 /* Tarjeta de compra (taquillas de evento y productos de tienda comparten
    el mismo look, a tono con la boleta/hero de arriba). */
 function purchaseCardHtml(opts){
+  const priceDisplay = opts.priceLabel || money(opts.price);
   return `
     <div class="card purchase-card" style="background:linear-gradient(160deg, color-mix(in srgb, var(${opts.tintVar}) 12%, var(--surface-2)) 0%, var(--surface-2) 100%);">
       <div class="row-between" style="align-items:flex-start;gap:10px;">
         <div class="hero-eyebrow" style="margin:0;">${opts.icon} ${opts.label}</div>
-        <span class="purchase-price">${money(opts.price)}</span>
+        <span class="purchase-price">${priceDisplay}</span>
       </div>
       <p class="hint-text" style="margin:6px 0 0;">${opts.hint}</p>
       <button class="btn ${opts.btnClass} btn-block" style="margin-top:14px;" onclick="${opts.onclick}">${opts.btnLabel}</button>
@@ -1377,8 +1423,14 @@ function viewActivityDetail(){
       <p class="hint-text" style="margin-top:10px;">Si no vas sin excusa aprobada, la directiva puede aplicar multa según el reglamento.</p>
     </div>`;
 
+  const hasTiers = a.requiresTicket && a.ticketTiers && a.ticketTiers.length>0;
+  const minTierPrice = hasTiers ? Math.min(...a.ticketTiers.map(t=>t.price)) : null;
+
   const ticketBlockFraterno = a.requiresTicket ? purchaseCardHtml({
-    icon:'🎟️', label:'Taquilla — Activo del Zeta', hint:'Con tu identificación de activo · 15% de descuento', price:activoPrice(a.price),
+    icon:'🎟️', label:'Taquilla — Activo del Zeta',
+    hint: hasTiers ? 'Elige tu categoría al continuar' : 'Con tu identificación de activo · 15% de descuento',
+    price: hasTiers ? minTierPrice : activoPrice(a.price),
+    priceLabel: hasTiers ? `Desde ${money(minTierPrice)}` : undefined,
     btnClass:'btn-accent', btnLabel:'Comprar como activo', onclick:`startTicketPurchase('${a.id}')`, tintVar:CATS[a.category].color,
   }) : '';
 
@@ -1386,7 +1438,10 @@ function viewActivityDetail(){
      puede no aparecer en la lista de activos con cuota al día y aun así
      poder asistir — necesita una forma de comprar escribiendo su nombre. */
   const ticketBlockGuest = a.requiresTicket ? purchaseCardHtml({
-    icon:'🎟️', label:'Taquilla — Invitado', hint:'Escribe tu nombre si no apareces en la lista de activos', price:a.price,
+    icon:'🎟️', label:'Taquilla — Invitado',
+    hint: hasTiers ? 'Elige tu categoría al continuar' : 'Escribe tu nombre si no apareces en la lista de activos',
+    price: hasTiers ? minTierPrice : a.price,
+    priceLabel: hasTiers ? `Desde ${money(minTierPrice)}` : undefined,
     btnClass:'btn-primary', btnLabel:'Comprar con mi nombre', onclick:`startGuestTicketPurchase('${a.id}')`, tintVar:CATS[a.category].color,
   }) : '';
 
@@ -1401,39 +1456,73 @@ function viewActivityDetail(){
   `;
 }
 
+function ticketTierField(a, idPrefix){
+  if(!a.ticketTiers || !a.ticketTiers.length) return '';
+  return `
+    <div class="field">
+      <label for="${idPrefix}-tier">Categoría</label>
+      <select id="${idPrefix}-tier" class="input" onchange="renderTicketQtyOptions('${idPrefix}')">
+        ${a.ticketTiers.map((t,i)=>`<option value="${i}">${t.label} — ${money(t.price)}</option>`).join('')}
+      </select>
+    </div>`;
+}
+function ticketUnitPrice(a, idPrefix){
+  if(a.ticketTiers && a.ticketTiers.length){
+    const sel = document.getElementById(`${idPrefix}-tier`);
+    const idx = sel ? parseInt(sel.value,10) : 0;
+    return a.ticketTiers[idx].price;
+  }
+  return idPrefix==='tk' ? activoPrice(a.price) : a.price;
+}
+function ticketTierLabel(a, idPrefix){
+  if(!a.ticketTiers || !a.ticketTiers.length) return null;
+  const sel = document.getElementById(`${idPrefix}-tier`);
+  const idx = sel ? parseInt(sel.value,10) : 0;
+  return a.ticketTiers[idx].label;
+}
+function renderTicketQtyOptions(idPrefix){
+  const activityId = window.__ticketFormActivity;
+  const a = byId(ACTIVITIES, activityId);
+  const unit = ticketUnitPrice(a, idPrefix);
+  const qtySel = document.getElementById(`${idPrefix}-qty`);
+  if(qtySel) qtySel.innerHTML = [1,2,3,4].map(n=>`<option value="${n}">${n} taquilla${n>1?'s':''} — ${money(n*unit)}</option>`).join('');
+}
 function startTicketPurchase(activityId){
   if(!state.currentMemberId) return openIdentifyModal();
   const a = byId(ACTIVITIES, activityId);
-  const unit = activoPrice(a.price);
+  window.__ticketFormActivity = activityId;
   openModal(`
     <h3>Comprar taquilla — Activo del Zeta</h3>
-    <p class="lede" style="margin-bottom:14px;">${a.title} — ${fmtDateShort(a.date)}. Precio con 15% de descuento de activo.</p>
-    <div class="field" style="margin-bottom:14px;">
-      <label for="tk-qty">Cantidad</label>
-      <select id="tk-qty" class="input">
-        ${[1,2,3,4].map(n=>`<option value="${n}">${n} taquilla${n>1?'s':''} — ${money(n*unit)}</option>`).join('')}
-      </select>
+    <p class="lede" style="margin-bottom:14px;">${a.title} — ${fmtDateShort(a.date)}. ${a.ticketTiers&&a.ticketTiers.length?'Elige tu categoría.':'Precio con 15% de descuento de activo.'}</p>
+    <div class="stack">
+      ${ticketTierField(a,'tk')}
+      <div class="field">
+        <label for="tk-qty">Cantidad</label>
+        <select id="tk-qty" class="input"></select>
+      </div>
     </div>
-    <button class="btn btn-primary btn-block" onclick="confirmTicketQty('${activityId}')">Continuar al pago</button>
+    <button class="btn btn-primary btn-block" style="margin-top:14px;" onclick="confirmTicketQty('${activityId}')">Continuar al pago</button>
     <button class="btn btn-ghost btn-block" onclick="closeModal()">Cancelar</button>
   `);
+  renderTicketQtyOptions('tk');
 }
 function confirmTicketQty(activityId){
-  const qty = parseInt(document.getElementById('tk-qty').value, 10);
   const a = byId(ACTIVITIES, activityId);
-  const unit = activoPrice(a.price);
+  const qty = parseInt(document.getElementById('tk-qty').value, 10);
+  const unit = ticketUnitPrice(a, 'tk');
+  const tierLabel = ticketTierLabel(a, 'tk');
   const memberId = state.currentMemberId;
   closeModal();
   openPaymentModal('taquilla', {
-    label:`${qty} taquilla(s) — ${a.title}`,
+    label:`${qty} taquilla(s) — ${a.title}${tierLabel?' ('+tierLabel+')':''}`,
     amount: qty*unit,
-    onConfirm: async (method, status)=>{
+    onConfirm: async (method, status, proofUrl)=>{
       try{
         const rows = await sb('tickets', {method:'POST', headers:{'Prefer':'return=representation'}, body: JSON.stringify({
-          activity_id: activityId, member_id: memberId, qty, status,
+          activity_id: activityId, member_id: memberId, qty, status, tier_label: tierLabel, payment_proof_url: proofUrl||null,
         })});
         const r = rows[0];
-        state.tickets.push({id:r.id, memberId:r.member_id, activityId:r.activity_id, qty:r.qty, total:qty*unit, method, status:r.status, date:(r.created_at||todayISO()).slice(0,10)});
+        state.tickets.push({id:r.id, memberId:r.member_id, activityId:r.activity_id, qty:r.qty, total:qty*unit, method, status:r.status, tierLabel:r.tier_label, proofUrl:r.payment_proof_url, date:(r.created_at||todayISO()).slice(0,10)});
       }catch(err){
         console.error(err);
         alert('No se pudo guardar la compra de taquilla en el servidor. Intenta de nuevo.');
@@ -1446,21 +1535,24 @@ function confirmTicketQty(activityId){
 /* ---- Taquilla pública (invitados, sin PIN) ---- */
 function startGuestTicketPurchase(activityId){
   const a = byId(ACTIVITIES, activityId);
+  window.__ticketFormActivity = activityId;
   openModal(`
     <h3>Comprar taquilla — Invitado</h3>
     <p class="lede" style="margin-bottom:14px;">${a.title} — ${fmtDateShort(a.date)}. Compra escribiendo tu nombre, sin necesidad de estar en la lista de activos.</p>
     <div class="stack">
       <div class="field"><label for="gt-name">Nombre completo</label><input id="gt-name" class="input" placeholder="Nombre y apellido"></div>
       <div class="field"><label for="gt-contact">Teléfono o email</label><input id="gt-contact" class="input" placeholder="787-000-0000"></div>
+      ${ticketTierField(a,'gt')}
       <div class="field">
         <label for="gt-qty">Cantidad</label>
-        <select id="gt-qty" class="input">${[1,2,3,4].map(n=>`<option value="${n}">${n} taquilla${n>1?'s':''} — ${money(n*a.price)}</option>`).join('')}</select>
+        <select id="gt-qty" class="input"></select>
       </div>
       <p id="gt-error" class="error-text" style="display:none;">Escribe tu nombre y contacto.</p>
       <button class="btn btn-primary btn-block" onclick="confirmGuestTicketQty('${activityId}')">Continuar al pago</button>
       <button class="btn btn-ghost btn-block" onclick="closeModal()">Cancelar</button>
     </div>
   `);
+  renderTicketQtyOptions('gt');
 }
 function confirmGuestTicketQty(activityId){
   const name = document.getElementById('gt-name').value.trim();
@@ -1468,17 +1560,19 @@ function confirmGuestTicketQty(activityId){
   if(!name || !contact){ document.getElementById('gt-error').style.display='block'; return; }
   const qty = parseInt(document.getElementById('gt-qty').value, 10);
   const a = byId(ACTIVITIES, activityId);
+  const unit = ticketUnitPrice(a, 'gt');
+  const tierLabel = ticketTierLabel(a, 'gt');
   closeModal();
   openPaymentModal('taquilla-publico', {
-    label:`${qty} taquilla(s) — ${a.title}`,
-    amount: qty*a.price,
-    onConfirm: async (method, status)=>{
+    label:`${qty} taquilla(s) — ${a.title}${tierLabel?' ('+tierLabel+')':''}`,
+    amount: qty*unit,
+    onConfirm: async (method, status, proofUrl)=>{
       try{
         const rows = await sb('public_tickets', {method:'POST', headers:{'Prefer':'return=representation'}, body: JSON.stringify({
-          activity_id: activityId, guest_name:name, guest_contact:contact, qty, status,
+          activity_id: activityId, guest_name:name, guest_contact:contact, qty, status, tier_label: tierLabel, payment_proof_url: proofUrl||null,
         })});
         const r = rows[0];
-        state.publicTickets.push({id:r.id, guestName:r.guest_name, guestContact:r.guest_contact, activityId:r.activity_id, qty:r.qty, total:qty*a.price, method, status:r.status, date:(r.created_at||todayISO()).slice(0,10)});
+        state.publicTickets.push({id:r.id, guestName:r.guest_name, guestContact:r.guest_contact, activityId:r.activity_id, qty:r.qty, total:qty*unit, method, status:r.status, tierLabel:r.tier_label, proofUrl:r.payment_proof_url, date:(r.created_at||todayISO()).slice(0,10)});
       }catch(err){
         console.error(err);
         alert('No se pudo guardar la compra de taquilla en el servidor. Intenta de nuevo.');
@@ -1504,11 +1598,114 @@ async function confirmAnyTicketStatus(id){
   }
 }
 
+/* ---- Editar / eliminar taquillas ya compradas (directiva) ---- */
+function openTicketEditModal(id){
+  let t = state.tickets.find(x=>x.id===id);
+  let isGuest = false;
+  if(!t){ t = state.publicTickets.find(x=>x.id===id); isGuest = true; }
+  if(!t) return;
+  const act = byId(ACTIVITIES, t.activityId);
+  const tierOptions = (act && act.ticketTiers && act.ticketTiers.length) ? `
+    <div class="field"><label for="tked-tier">Categoría</label>
+      <select id="tked-tier" class="input">
+        <option value="">— Sin categoría —</option>
+        ${act.ticketTiers.map(tier=>`<option value="${tier.label}" ${t.tierLabel===tier.label?'selected':''}>${tier.label} — ${money(tier.price)}</option>`).join('')}
+      </select>
+    </div>` : '';
+  openModal(`
+    <h3>Editar taquilla</h3>
+    <div class="stack">
+      ${isGuest ? `
+        <div class="field"><label for="tked-name">Nombre</label><input id="tked-name" class="input" value="${t.guestName}"></div>
+        <div class="field"><label for="tked-contact">Contacto</label><input id="tked-contact" class="input" value="${t.guestContact}"></div>
+      ` : `<p class="hint-text">Fraterno: ${member(t.memberId)?member(t.memberId).name:'(eliminado)'}</p>`}
+      ${tierOptions}
+      <div class="field"><label for="tked-qty">Cantidad</label><input id="tked-qty" type="number" min="1" class="input" value="${t.qty}"></div>
+      <div class="field"><label for="tked-status">Estatus</label>
+        <select id="tked-status" class="input">
+          <option value="Pendiente de confirmar" ${t.status!=='Pagado'?'selected':''}>Pendiente de confirmar</option>
+          <option value="Pagado" ${t.status==='Pagado'?'selected':''}>Pagado</option>
+        </select>
+      </div>
+      ${t.proofUrl ? `<a href="${t.proofUrl}" target="_blank" class="link-btn" style="padding:0;">Ver comprobante subido</a>` : ''}
+      <p id="tked-error" class="error-text" style="display:none;"></p>
+      <button class="btn btn-primary btn-block" onclick="saveTicketEdit('${id}', ${isGuest})">Guardar cambios</button>
+      <button class="btn btn-ghost btn-block" onclick="closeModal()">Cancelar</button>
+    </div>
+  `);
+}
+async function saveTicketEdit(id, isGuest){
+  const table = isGuest ? 'public_tickets' : 'tickets';
+  const qty = parseInt(document.getElementById('tked-qty').value, 10);
+  const status = document.getElementById('tked-status').value;
+  const tierSel = document.getElementById('tked-tier');
+  const errEl = document.getElementById('tked-error');
+  if(!qty || qty<1){ errEl.textContent='Cantidad inválida.'; errEl.style.display='block'; return; }
+  const payload = { qty, status };
+  if(tierSel) payload.tier_label = tierSel.value || null;
+  if(isGuest){
+    payload.guest_name = document.getElementById('tked-name').value.trim();
+    payload.guest_contact = document.getElementById('tked-contact').value.trim();
+    if(!payload.guest_name || !payload.guest_contact){ errEl.textContent='Completa nombre y contacto.'; errEl.style.display='block'; return; }
+  }
+  try{
+    await sb(`${table}?id=eq.${id}`, {method:'PATCH', headers:{'Prefer':'return=minimal'}, body: JSON.stringify(payload)});
+    closeModal();
+    await loadFromSupabase();
+  }catch(err){
+    console.error(err);
+    errEl.textContent = 'No se pudo guardar. Intenta de nuevo.';
+    errEl.style.display='block';
+  }
+}
+function deleteTicketConfirm(id){
+  openModal(`
+    <h3>¿Eliminar esta taquilla?</h3>
+    <p class="lede" style="margin-bottom:14px;">Esta acción no se puede deshacer.</p>
+    <div class="stack">
+      <button class="btn btn-danger-line btn-block" onclick="deleteTicket('${id}')">Sí, eliminar</button>
+      <button class="btn btn-ghost btn-block" onclick="closeModal()">Cancelar</button>
+    </div>
+  `);
+}
+async function deleteTicket(id){
+  closeModal();
+  const isGuest = !state.tickets.find(x=>x.id===id);
+  const table = isGuest ? 'public_tickets' : 'tickets';
+  try{
+    await sb(`${table}?id=eq.${id}`, {method:'DELETE'});
+    if(isGuest) state.publicTickets = state.publicTickets.filter(x=>x.id!==id);
+    else state.tickets = state.tickets.filter(x=>x.id!==id);
+    render();
+  }catch(err){
+    console.error(err);
+    alert('No se pudo eliminar la taquilla. Intenta de nuevo.');
+  }
+}
+
 /* ---- CMS de eventos (directiva) ---- */
+/* Lista de precios variables que se está editando en el modal de
+   evento (Damas, Militantes, Activo del Zeta, etc.). Vive fuera del
+   modal porque cada fila se re-renderiza sola al agregar/quitar. */
+let eventFormTiers = [];
+function renderTierRows(){
+  const el = document.getElementById('ev-tiers-list');
+  if(!el) return;
+  el.innerHTML = eventFormTiers.map((t,i)=>`
+    <div class="row" style="gap:6px;margin-bottom:6px;">
+      <input class="input" style="flex:2;" placeholder="Ej. Damas" value="${t.label||''}" oninput="eventFormTiers[${i}].label=this.value">
+      <input class="input" style="flex:1;" type="number" min="0" step="0.01" placeholder="Precio" value="${t.price!=null?t.price:''}" oninput="eventFormTiers[${i}].price=parseFloat(this.value)||0">
+      <button type="button" class="btn btn-ghost btn-sm" onclick="removeTierRow(${i})">✕</button>
+    </div>`).join('') || `<p class="hint-text">Sin precios variables — se usa el precio único de arriba.</p>`;
+}
+function addTierRow(){ eventFormTiers.push({label:'', price:0}); renderTierRows(); }
+function removeTierRow(i){ eventFormTiers.splice(i,1); renderTierRows(); }
+
 function openEventFormModal(eventId){
   const editing = eventId ? byId(ACTIVITIES, eventId) : null;
   const catOptions = Object.entries(CATS).map(([k,v])=>`<option value="${k}" ${editing&&editing.category===k?'selected':''}>${v.label}</option>`).join('');
   const dtValue = editing ? toDatetimeLocalPR(editing.date) : '';
+  eventFormTiers = editing ? JSON.parse(JSON.stringify(editing.ticketTiers||[])) : [];
   openModal(`
     <h3>${editing ? 'Editar evento' : 'Nuevo evento'}</h3>
     <div class="stack">
@@ -1522,12 +1719,19 @@ function openEventFormModal(eventId){
         <label class="check-row"><input type="checkbox" id="ev-ticket" ${editing&&editing.requiresTicket?'checked':''}> Requiere taquilla</label>
       </div>
       <div class="field"><label for="ev-price">Precio de taquilla (si aplica)</label><input id="ev-price" type="number" min="0" step="0.01" class="input" value="${editing&&editing.price?editing.price:''}"></div>
+      <div class="field">
+        <label>Precios variables (opcional)</label>
+        <p class="hint-text" style="margin:0 0 8px;">Si agregas categorías (Damas, Militantes, Activo del Zeta, etc.), el comprador elige una al pagar y ese precio manda — no se le resta el 15% aparte. Si no agregas ninguna, se usa el precio único de arriba con el descuento automático de activo.</p>
+        <div id="ev-tiers-list"></div>
+        <button type="button" class="btn btn-ghost btn-sm" style="margin-top:4px;" onclick="addTierRow()">+ Agregar precio</button>
+      </div>
       <p id="ev-error" class="error-text" style="display:none;">Completa título, fecha y lugar.</p>
       <button class="btn btn-primary btn-block" onclick="saveEventForm(${editing?`'${editing.id}'`:'null'})">${editing?'Guardar cambios':'Crear evento'}</button>
       ${editing ? `<button class="btn btn-danger-line btn-block" onclick="deleteEventConfirm('${editing.id}')">Eliminar evento</button>` : ''}
       <button class="btn btn-ghost btn-block" onclick="closeModal()">Cancelar</button>
     </div>
   `);
+  renderTierRows();
 }
 async function saveEventForm(eventId){
   const title = document.getElementById('ev-title').value.trim();
@@ -1544,9 +1748,11 @@ async function saveEventForm(eventId){
      escribe en hora de Puerto Rico (UTC-4, sin horario de verano), así
      que se fija ese offset explícito al construir el instante UTC real. */
   const isoDate = dt.length===16 ? dt+':00-04:00' : dt;
+  const ticketTiers = eventFormTiers.filter(t=>t.label && t.label.trim());
   const payload = {
     title, date:isoDate, location:place, description:desc, category,
     is_public:isPublic, requires_ticket:requiresTicket, price,
+    ticket_tiers: ticketTiers,
   };
   try{
     if(eventId){
@@ -2229,23 +2435,32 @@ function adminTabContent(){
 
   if(state.adminTab==='taquillas'){
     const allTix = [
-      ...state.tickets.map(t=>({...t, who:member(t.memberId).name, kind:'Fraterno'})),
+      ...state.tickets.map(t=>({...t, who:member(t.memberId)?member(t.memberId).name:'(fraterno eliminado)', kind:'Fraterno'})),
       ...state.publicTickets.map(t=>({...t, who:`${t.guestName} (${t.guestContact})`, kind:'Público'})),
     ].sort((a,b)=> new Date(b.date)-new Date(a.date));
     if(!allTix.length) return `<div class="empty-state">No hay taquillas vendidas todavía.</div>`;
     return `<div class="table-wrap"><table>
-      <thead><tr><th>Comprador</th><th>Tipo</th><th>Evento</th><th class="num">Cant.</th><th class="num">Total</th><th>Método</th><th>Estatus</th><th></th></tr></thead>
-      <tbody>${allTix.map(t=>`
+      <thead><tr><th>Comprador</th><th>Tipo</th><th>Evento</th><th>Categoría</th><th class="num">Cant.</th><th class="num">Total</th><th>Método</th><th>Comprobante</th><th>Estatus</th><th></th></tr></thead>
+      <tbody>${allTix.map(t=>{
+        const act = byId(ACTIVITIES,t.activityId);
+        return `
         <tr>
           <td>${t.who}</td>
           <td><span class="chip ${t.kind==='Público'?'chip-accent':'chip-neutral'}">${t.kind}</span></td>
-          <td>${byId(ACTIVITIES,t.activityId).title}</td>
+          <td>${act?act.title:'(evento eliminado)'}</td>
+          <td>${t.tierLabel||'—'}</td>
           <td class="num">${t.qty}</td>
           <td class="num">${money(t.total)}</td>
           <td>${t.method}</td>
+          <td>${t.proofUrl?`<a href="${t.proofUrl}" target="_blank" class="link-btn" style="padding:0;">Ver foto</a>`:'—'}</td>
           <td><span class="chip ${t.status==='Pagado'?'chip-success':'chip-warning'}">${t.status}</span></td>
-          <td>${t.status!=='Pagado'?`<button class="btn btn-ghost btn-sm" onclick="confirmAnyTicketStatus('${t.id}')">Confirmar</button>`:''}</td>
-        </tr>`).join('')}</tbody>
+          <td class="row" style="gap:6px;flex-wrap:wrap;">
+            ${t.status!=='Pagado'?`<button class="btn btn-ghost btn-sm" onclick="confirmAnyTicketStatus('${t.id}')">Confirmar</button>`:''}
+            <button class="btn btn-ghost btn-sm" onclick="openTicketEditModal('${t.id}')">Editar</button>
+            <button class="btn btn-danger-line btn-sm" onclick="deleteTicketConfirm('${t.id}')">Eliminar</button>
+          </td>
+        </tr>`;
+      }).join('')}</tbody>
     </table></div>`;
   }
 
