@@ -529,7 +529,7 @@ async function loadFromSupabase(){
     ]);
 
     ACTIVITIES.length = 0; (acts||[]).forEach(r=>ACTIVITIES.push(mapActivityRow(r)));
-    MEMBERS.length = 0; (mems||[]).forEach(r=>MEMBERS.push(r));
+    MEMBERS.length = 0; (mems||[]).forEach(r=>MEMBERS.push(mapMemberRow(r)));
     SHOP_ITEMS.length = 0; (shop||[]).forEach(r=>SHOP_ITEMS.push(mapShopRow(r)));
     DOCS.length = 0; (docs||[]).forEach(r=>DOCS.push(mapDocRow(r)));
 
@@ -600,13 +600,22 @@ async function fetchDocs(){
 /* list_members() (público) solo expone id/name/role/birthday. Con la
    contraseña de directiva vigente, admin_list_members() trae también
    phone y pin para poder editar el roster. */
+/* list_members() (público) devuelve has_pin en snake_case; el resto del
+   código usa camelCase, así que se traduce aquí una sola vez. */
+function mapMemberRow(r){
+  return {...r, hasPin: !!r.has_pin};
+}
 async function fetchMembers(){
   try{
-    const rows = (state.adminAuthed && state.adminPassword)
-      ? await sbRpc('admin_list_members', {p_admin_password: state.adminPassword})
-      : await sbRpc('list_members');
-    MEMBERS.length = 0;
-    (rows||[]).forEach(r=>MEMBERS.push(r));
+    if(state.adminAuthed && state.adminPassword){
+      const rows = await sbRpc('admin_list_members', {p_admin_password: state.adminPassword});
+      MEMBERS.length = 0;
+      (rows||[]).forEach(r=>MEMBERS.push(r));
+    } else {
+      const rows = await sbRpc('list_members');
+      MEMBERS.length = 0;
+      (rows||[]).forEach(r=>MEMBERS.push(mapMemberRow(r)));
+    }
     render();
   }catch(err){
     console.error('Error cargando fraternos:', err);
@@ -620,6 +629,10 @@ function byId(arr,id){return arr.find(x=>x.id===id);}
 function member(id){return MEMBERS.find(m=>m.id===id);}
 function firstName(name){return name.split(' ')[0];}
 function money(n){return '$' + n.toFixed(2);}
+/* Los activos del capítulo pagan 15% menos que el invitado, tanto en
+   taquillas como en tienda. El invitado siempre paga precio completo. */
+const ACTIVO_DISCOUNT = 0.15;
+function activoPrice(price){ return price * (1 - ACTIVO_DISCOUNT); }
 /* Todo el capítulo opera en hora de Puerto Rico (UTC-4, sin horario de
    verano). Se fija timeZone explícitamente en vez de confiar en la del
    dispositivo del que mira la app — si no, un fraterno de viaje o un
@@ -784,40 +797,86 @@ function openIdentifyModal(){
   const options = MEMBERS.map(m=>`<option value="${m.id}">${m.name}</option>`).join('');
   openModal(`
     <h3>Identifícate</h3>
-    <p class="lede" style="margin-bottom:14px;">Selecciona tu nombre y escribe tu PIN de 4 dígitos. Si no lo tienes, pídelo a la directiva.</p>
+    <p class="lede" style="margin-bottom:14px;">Selecciona tu nombre.</p>
     <div class="stack">
       <div class="field">
         <label for="idf-name">Tu nombre</label>
-        <select id="idf-name" class="input">${options}</select>
+        <select id="idf-name" class="input" onchange="renderIdentifyFields()">${options}</select>
       </div>
-      <div class="field">
-        <label for="idf-pin">PIN</label>
-        <input id="idf-pin" class="input input-pin" type="tel" inputmode="numeric" maxlength="4" placeholder="••••">
-      </div>
-      <p id="idf-error" class="error-text" style="display:none;">PIN incorrecto. Intenta de nuevo.</p>
+      <div id="idf-fields"></div>
+      <p id="idf-error" class="error-text" style="display:none;"></p>
       <button class="btn btn-primary btn-block" onclick="submitIdentify()">Entrar</button>
       <button class="btn btn-ghost btn-block" onclick="closeModal()">Cancelar</button>
     </div>
   `);
+  renderIdentifyFields();
+}
+/* El primer fraterno que selecciona su nombre todavía no tiene PIN
+   (hasPin===false) — ahí se le pide crear su PIN y decir su cumpleaños
+   en vez de pedirle un PIN que nunca configuró. */
+function renderIdentifyFields(){
+  const nameEl = document.getElementById('idf-name');
+  const container = document.getElementById('idf-fields');
+  if(!nameEl || !container) return;
+  const m = member(nameEl.value);
+  if(!m) { container.innerHTML=''; return; }
+  container.innerHTML = m.hasPin ? `
+    <div class="field">
+      <label for="idf-pin">PIN</label>
+      <input id="idf-pin" class="input input-pin" type="tel" inputmode="numeric" maxlength="4" placeholder="••••">
+    </div>` : `
+    <p class="hint-text">Primera vez que entras: crea tu PIN de 4 dígitos y dinos tu cumpleaños (sale en el calendario del capítulo).</p>
+    <div class="field">
+      <label for="idf-new-pin">Crea tu PIN (4 dígitos)</label>
+      <input id="idf-new-pin" class="input input-pin" type="tel" inputmode="numeric" maxlength="4" placeholder="••••">
+    </div>
+    <div class="field">
+      <label for="idf-birthday">Tu cumpleaños</label>
+      <input id="idf-birthday" type="date" class="input">
+    </div>`;
 }
 async function submitIdentify(){
   const id = document.getElementById('idf-name').value;
-  const pin = document.getElementById('idf-pin').value.trim();
+  const m = member(id);
   const errEl = document.getElementById('idf-error');
-  try{
-    const ok = await sbRpc('check_pin', {p_member_id:id, p_pin:pin});
-    if(ok===true){
-      state.currentMemberId = id;
-      closeModal();
-      render();
-    } else {
-      errEl.textContent = 'PIN incorrecto. Intenta de nuevo.';
+  errEl.style.display='none';
+  if(m && m.hasPin){
+    const pin = document.getElementById('idf-pin').value.trim();
+    try{
+      const ok = await sbRpc('check_pin', {p_member_id:id, p_pin:pin});
+      if(ok===true){
+        state.currentMemberId = id;
+        closeModal();
+        render();
+      } else {
+        errEl.textContent = 'PIN incorrecto. Intenta de nuevo.';
+        errEl.style.display='block';
+      }
+    }catch(err){
+      console.error(err);
+      errEl.textContent = 'No se pudo verificar el PIN. Revisa tu conexión e intenta de nuevo.';
       errEl.style.display='block';
     }
-  }catch(err){
-    console.error(err);
-    errEl.textContent = 'No se pudo verificar el PIN. Revisa tu conexión e intenta de nuevo.';
-    errEl.style.display='block';
+  } else {
+    const pin = document.getElementById('idf-new-pin').value.trim();
+    const birthday = document.getElementById('idf-birthday').value || null;
+    if(!/^\d{4}$/.test(pin)){ errEl.textContent='El PIN debe ser de 4 dígitos.'; errEl.style.display='block'; return; }
+    if(!birthday){ errEl.textContent='Escribe tu cumpleaños.'; errEl.style.display='block'; return; }
+    try{
+      const ok = await sbRpc('set_member_pin_and_birthday', {p_member_id:id, p_pin:pin, p_birthday:birthday});
+      if(ok===true){
+        state.currentMemberId = id;
+        closeModal();
+        await fetchMembers();
+      } else {
+        errEl.textContent = 'No se pudo guardar tu PIN (puede que ya tengas uno configurado). Intenta de nuevo.';
+        errEl.style.display='block';
+      }
+    }catch(err){
+      console.error(err);
+      errEl.textContent = 'No se pudo guardar. Revisa tu conexión e intenta de nuevo.';
+      errEl.style.display='block';
+    }
   }
 }
 
@@ -1319,8 +1378,8 @@ function viewActivityDetail(){
     </div>`;
 
   const ticketBlockFraterno = a.requiresTicket ? purchaseCardHtml({
-    icon:'🎟️', label:'Taquilla — Fraternos', hint:'Con tu identificación de fraterno', price:a.price,
-    btnClass:'btn-accent', btnLabel:'Comprar como fraterno', onclick:`startTicketPurchase('${a.id}')`, tintVar:CATS[a.category].color,
+    icon:'🎟️', label:'Taquilla — Activo del Zeta', hint:'Con tu identificación de activo · 15% de descuento', price:activoPrice(a.price),
+    btnClass:'btn-accent', btnLabel:'Comprar como activo', onclick:`startTicketPurchase('${a.id}')`, tintVar:CATS[a.category].color,
   }) : '';
 
   /* Siempre disponible (no solo en eventos marcados públicos): alguien
@@ -1345,13 +1404,14 @@ function viewActivityDetail(){
 function startTicketPurchase(activityId){
   if(!state.currentMemberId) return openIdentifyModal();
   const a = byId(ACTIVITIES, activityId);
+  const unit = activoPrice(a.price);
   openModal(`
-    <h3>Comprar taquilla</h3>
-    <p class="lede" style="margin-bottom:14px;">${a.title} — ${fmtDateShort(a.date)}</p>
+    <h3>Comprar taquilla — Activo del Zeta</h3>
+    <p class="lede" style="margin-bottom:14px;">${a.title} — ${fmtDateShort(a.date)}. Precio con 15% de descuento de activo.</p>
     <div class="field" style="margin-bottom:14px;">
       <label for="tk-qty">Cantidad</label>
       <select id="tk-qty" class="input">
-        ${[1,2,3,4].map(n=>`<option value="${n}">${n} taquilla${n>1?'s':''} — ${money(n*a.price)}</option>`).join('')}
+        ${[1,2,3,4].map(n=>`<option value="${n}">${n} taquilla${n>1?'s':''} — ${money(n*unit)}</option>`).join('')}
       </select>
     </div>
     <button class="btn btn-primary btn-block" onclick="confirmTicketQty('${activityId}')">Continuar al pago</button>
@@ -1361,18 +1421,19 @@ function startTicketPurchase(activityId){
 function confirmTicketQty(activityId){
   const qty = parseInt(document.getElementById('tk-qty').value, 10);
   const a = byId(ACTIVITIES, activityId);
+  const unit = activoPrice(a.price);
   const memberId = state.currentMemberId;
   closeModal();
   openPaymentModal('taquilla', {
     label:`${qty} taquilla(s) — ${a.title}`,
-    amount: qty*a.price,
+    amount: qty*unit,
     onConfirm: async (method, status)=>{
       try{
         const rows = await sb('tickets', {method:'POST', headers:{'Prefer':'return=representation'}, body: JSON.stringify({
           activity_id: activityId, member_id: memberId, qty, status,
         })});
         const r = rows[0];
-        state.tickets.push({id:r.id, memberId:r.member_id, activityId:r.activity_id, qty:r.qty, total:qty*a.price, method, status:r.status, date:(r.created_at||todayISO()).slice(0,10)});
+        state.tickets.push({id:r.id, memberId:r.member_id, activityId:r.activity_id, qty:r.qty, total:qty*unit, method, status:r.status, date:(r.created_at||todayISO()).slice(0,10)});
       }catch(err){
         console.error(err);
         alert('No se pudo guardar la compra de taquilla en el servidor. Intenta de nuevo.');
@@ -1568,8 +1629,8 @@ function viewProduct(){
     <h1 class="page-title">${p.name}</h1>
     <p class="lede">${p.blurb}</p>
     ${purchaseCardHtml({
-      icon:'🛍️', label:'Comprar — Fraternos', hint:'Con tu identificación de fraterno', price:p.price,
-      btnClass:'btn-accent', btnLabel:'Comprar como fraterno', onclick:`startProductPurchase('${p.id}')`, tintVar:'--accent',
+      icon:'🛍️', label:'Comprar — Activo del Zeta', hint:'Con tu identificación de activo · 15% de descuento', price:activoPrice(p.price),
+      btnClass:'btn-accent', btnLabel:'Comprar como activo', onclick:`startProductPurchase('${p.id}')`, tintVar:'--accent',
     })}
     ${purchaseCardHtml({
       icon:'🛍️', label:'Comprar — Invitado', hint:'Escribe tu nombre, no necesitas ser fraterno', price:p.price,
@@ -1587,12 +1648,13 @@ function productSizeField(p, idPrefix){
 function startProductPurchase(productId){
   if(!state.currentMemberId) return openIdentifyModal();
   const p = byId(SHOP_ITEMS, productId);
+  const unit = activoPrice(p.price);
   openModal(`
-    <h3>Comprar como fraterno</h3>
-    <p class="lede" style="margin-bottom:14px;">${p.name} — ${money(p.price)}</p>
+    <h3>Comprar como activo del Zeta</h3>
+    <p class="lede" style="margin-bottom:14px;">${p.name} — ${money(unit)} (15% de descuento de activo)</p>
     <div class="stack">
       ${productSizeField(p,'prod')}
-      <div class="field"><label for="prod-qty">Cantidad</label><select id="prod-qty" class="input">${[1,2,3].map(n=>`<option value="${n}">${n} — ${money(n*p.price)}</option>`).join('')}</select></div>
+      <div class="field"><label for="prod-qty">Cantidad</label><select id="prod-qty" class="input">${[1,2,3].map(n=>`<option value="${n}">${n} — ${money(n*unit)}</option>`).join('')}</select></div>
       <button class="btn btn-accent btn-block" onclick="confirmProductQty('${productId}')">Continuar al pago</button>
       <button class="btn btn-ghost btn-block" onclick="closeModal()">Cancelar</button>
     </div>
@@ -1600,20 +1662,21 @@ function startProductPurchase(productId){
 }
 function confirmProductQty(productId){
   const p = byId(SHOP_ITEMS, productId);
+  const unit = activoPrice(p.price);
   const size = p.sizes ? document.getElementById('prod-size').value : null;
   const qty = parseInt(document.getElementById('prod-qty').value, 10);
   const memberId = state.currentMemberId;
   closeModal();
   openPaymentModal('tienda', {
     label:`${qty}× ${p.name}${size?' ('+size+')':''}`,
-    amount: qty*p.price,
+    amount: qty*unit,
     onConfirm: async (method, status)=>{
       try{
         const rows = await sb('purchases', {method:'POST', headers:{'Prefer':'return=representation'}, body: JSON.stringify({
           member_id: memberId, item_id: productId, qty, status,
         })});
         const r = rows[0];
-        state.purchases.push({id:r.id, memberId:r.member_id, kind:'tienda', item:p.name, detail:size||'—', qty:r.qty, total:qty*p.price, method, status:r.status, date:(r.created_at||todayISO()).slice(0,10)});
+        state.purchases.push({id:r.id, memberId:r.member_id, kind:'tienda', item:p.name, detail:size||'—', qty:r.qty, total:qty*unit, method, status:r.status, date:(r.created_at||todayISO()).slice(0,10)});
       }catch(err){
         console.error(err);
         alert('No se pudo guardar la compra en el servidor. Intenta de nuevo.');
