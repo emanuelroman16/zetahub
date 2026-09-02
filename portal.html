@@ -500,7 +500,7 @@ const state = {
   currentMemberId:null,
   adminAuthed:false,
   adminPassword:null,
-  adminTab:'eventos',
+  adminTab:'home',
   adminActivity:null,
   eventsView:'lista',
   calendarMonth:new Date(NOW.getFullYear(), NOW.getMonth(), 1),
@@ -1079,6 +1079,7 @@ async function submitAdminLogin(){
 function adminLogout(){
   state.adminAuthed = false;
   state.adminPassword = null;
+  state.adminTab = 'home';
   state.prospects = [];
   state.transactions = [];
   goRoute('profile');
@@ -2414,25 +2415,46 @@ async function deleteTransaction(id){
 }
 
 /* ---------- Panel de Directiva ---------- */
-/* Los 10 tabs planos eran una pared difícil de escanear — se agrupan
-   en categorías (control segmentado arriba) + sub-tabs de la
-   categoría activa abajo, para que se sienta organizado en vez de una
-   fila interminable de pills. La categoría activa se deriva de
-   state.adminTab, no hace falta guardar estado nuevo. */
-const ADMIN_TAB_GROUPS = [
-  {key:'actividades', label:'📅 Actividades', tabs:[['eventos','Eventos'],['asistencia','Asistencia']]},
-  {key:'finanzas', label:'💵 Finanzas', tabs:[['cuenta','Cuenta'],['productos','Productos'],['tienda','Ventas'],['taquillas','Taquillas'],['multas','Multas']]},
-  {key:'personas', label:'👥 Personas', tabs:[['activos','Fraternos'],['interesados','Interesados']]},
-  {key:'contenido', label:'📄 Contenido', tabs:[['documentos','Documentos'],['ajustes','Ajustes']]},
-];
-function viewAdmin(){
+/* La navegación de Directiva es una pantalla de tarjetas grandes
+   (cada una lleva su número/estatus principal a la vista, como las
+   tarjetas de stats) en vez de tabs/sub-tabs — se toca una tarjeta y
+   se entra de lleno a esa área con su propio botón de volver. Solo
+   Finanzas agrupa internamente Cuenta/Productos/Ventas/Taquillas
+   porque son todas plata — Multas se quedó aparte porque así lo pidió
+   el usuario explícitamente. */
+const ADMIN_SECTION_LABELS = {
+  eventos:'Eventos', asistencia:'Asistencia', cuenta:'Finanzas', productos:'Productos',
+  tienda:'Ventas', taquillas:'Taquillas', multas:'Multas', activos:'Fraternos',
+  interesados:'Interesados', documentos:'Documentos', ajustes:'Ajustes',
+};
+const FINANCE_SUBTABS = [['cuenta','Cuenta'],['productos','Productos'],['tienda','Ventas'],['taquillas','Taquillas']];
+function goAdminSection(key){ state.adminTab = key; render(); }
+function adminNavCardHtml(opts){
+  return `
+    <div class="card" style="cursor:pointer;" onclick="goAdminSection('${opts.key}')">
+      <div class="row-between" style="align-items:center;">
+        <div class="row" style="gap:12px;min-width:0;">
+          <span style="font-size:1.7rem;flex-shrink:0;">${opts.icon}</span>
+          <div class="col" style="min-width:0;">
+            <strong style="font-size:1.02rem;">${opts.label}</strong>
+            <span class="hint-text truncate">${opts.sub}</span>
+          </div>
+        </div>
+        <div class="row" style="gap:8px;flex-shrink:0;">
+          <span class="stat-num" style="font-size:1.25rem;${opts.valueColor?`color:${opts.valueColor};`:''}">${opts.value}</span>
+          <span class="chevron">›</span>
+        </div>
+      </div>
+    </div>`;
+}
+function adminHomeCards(){
   const totalActivos = MEMBERS.length;
   const next = nextActivity(ACTIVITIES);
   const confirmedNext = next ? MEMBERS.filter(m=>rsvpStatusFor(next, m.id)==='voy').length : 0;
   const pendingFines = allFines().filter(f=>!f.paid).length;
-  const salesMonth = state.purchases.reduce((s,p)=>s+p.total,0) + state.publicPurchases.reduce((s,p)=>s+p.total,0) + state.tickets.reduce((s,t)=>s+t.total,0) + state.publicTickets.reduce((s,t)=>s+t.total,0);
+  const balance = state.transactions.reduce((s,t)=> s + (t.type==='ingreso'?t.amount:-t.amount), 0);
   const newProspects = state.prospects.filter(p=>p.status!=='contactado').length;
-  const activeGroup = ADMIN_TAB_GROUPS.find(g => g.tabs.some(([k])=>k===state.adminTab)) || ADMIN_TAB_GROUPS[0];
+  const upcomingCount = upcomingActivities(ACTIVITIES).length;
 
   return `
     <div class="row-between">
@@ -2440,34 +2462,25 @@ function viewAdmin(){
       <button class="link-btn" onclick="adminLogout()">Salir</button>
     </div>
     <h1 class="page-title">Directiva</h1>
-    <div class="stat-grid">
-      <div class="stat-card" style="border-left:3px solid var(--accent);cursor:pointer;" onclick="state.adminTab='activos'; render();">
-        <div class="row-between"><div class="stat-num">${totalActivos}</div><span style="font-size:1.15rem;opacity:.7;">👥</span></div>
-        <div class="stat-label">Total activos</div>
-      </div>
-      <div class="stat-card" style="border-left:3px solid var(--cat-capitular);cursor:pointer;" onclick="state.adminTab='asistencia'; render();">
-        <div class="row-between"><div class="stat-num">${confirmedNext}/${totalActivos}</div><span style="font-size:1.15rem;opacity:.7;">✅</span></div>
-        <div class="stat-label">Confirmados próx. actividad</div>
-      </div>
-      <div class="stat-card" style="border-left:3px solid ${pendingFines>0?'var(--danger)':'var(--border)'};cursor:pointer;" onclick="state.adminTab='multas'; render();">
-        <div class="row-between"><div class="stat-num" style="color:${pendingFines>0?'var(--danger)':'var(--ink)'};">${pendingFines}</div><span style="font-size:1.15rem;opacity:.7;">⚠️</span></div>
-        <div class="stat-label">Multas pendientes</div>
-      </div>
-      <div class="stat-card" style="border-left:3px solid var(--success);cursor:pointer;" onclick="state.adminTab='tienda'; render();">
-        <div class="row-between"><div class="stat-num">${money(salesMonth)}</div><span style="font-size:1.15rem;opacity:.7;">💵</span></div>
-        <div class="stat-label">Ventas registradas</div>
-      </div>
-      <div class="stat-card" style="border-left:3px solid ${newProspects>0?'var(--warning)':'var(--border)'};cursor:pointer;" onclick="state.adminTab='interesados'; render();">
-        <div class="row-between"><div class="stat-num" style="color:${newProspects>0?'var(--warning)':'var(--ink)'};">${newProspects}</div><span style="font-size:1.15rem;opacity:.7;">🎯</span></div>
-        <div class="stat-label">Interesados nuevos</div>
-      </div>
+    <div class="stack">
+      ${adminNavCardHtml({key:'eventos', icon:'📅', label:'Eventos', sub:`${upcomingCount} próximo${upcomingCount===1?'':'s'}`, value:upcomingCount})}
+      ${adminNavCardHtml({key:'asistencia', icon:'✅', label:'Asistencia', sub:next?next.title:'Sin próxima actividad', value:`${confirmedNext}/${totalActivos}`})}
+      ${adminNavCardHtml({key:'cuenta', icon:'💵', label:'Finanzas', sub:'Balance, productos, ventas y taquillas', value:money(balance), valueColor: balance>=0?'var(--success)':'var(--danger)'})}
+      ${adminNavCardHtml({key:'multas', icon:'⚠️', label:'Multas', sub:'Pendientes de pago', value:pendingFines, valueColor: pendingFines>0?'var(--danger)':'var(--ink)'})}
+      ${adminNavCardHtml({key:'activos', icon:'👥', label:'Fraternos', sub:'Roster de activos', value:totalActivos})}
+      ${adminNavCardHtml({key:'interesados', icon:'🎯', label:'Interesados', sub:'Formulario de la página pública', value:newProspects, valueColor: newProspects>0?'var(--warning)':'var(--ink)'})}
+      ${adminNavCardHtml({key:'documentos', icon:'📄', label:'Documentos', sub:'Reglamento, minutas...', value:DOCS.length})}
+      ${adminNavCardHtml({key:'ajustes', icon:'⚙️', label:'Ajustes', sub:'Contraseña de directiva', value:''})}
     </div>
-    <div class="segmented" style="margin-top:4px;">
-      ${ADMIN_TAB_GROUPS.map(g=>`<button class="${g.key===activeGroup.key?'active':''}" onclick="state.adminTab='${g.tabs[0][0]}'; render();">${g.label}</button>`).join('')}
-    </div>
-    <div class="admin-tabs">
-      ${activeGroup.tabs.map(([k,l])=>`<button class="admin-tab-btn ${state.adminTab===k?'active':''}" onclick="state.adminTab='${k}'; render();">${l}</button>`).join('')}
-    </div>
+  `;
+}
+function viewAdmin(){
+  if(!state.adminTab || state.adminTab==='home') return adminHomeCards();
+  const inFinance = FINANCE_SUBTABS.some(([k])=>k===state.adminTab);
+  return `
+    <button class="btn btn-ghost btn-sm" style="align-self:flex-start;" onclick="goAdminSection('home')">← Panel de Directiva</button>
+    <h1 class="page-title">${ADMIN_SECTION_LABELS[state.adminTab]||''}</h1>
+    ${inFinance ? `<div class="admin-tabs">${FINANCE_SUBTABS.map(([k,l])=>`<button class="admin-tab-btn ${state.adminTab===k?'active':''}" onclick="goAdminSection('${k}')">${l}</button>`).join('')}</div>` : ''}
     ${adminTabContent()}
   `;
 }
@@ -2493,7 +2506,6 @@ function adminTabContent(){
         <thead><tr><th>Fecha</th><th>Descripción</th><th>Tipo</th><th class="num">Monto</th><th></th></tr></thead>
         <tbody>${rows || `<tr><td colspan="5" style="text-align:center;color:var(--ink-faint);padding:20px;">Sin registros todavía.</td></tr>`}</tbody>
       </table></div>
-      <p class="hint-text">Ingresos y gastos que registre la directiva a mano — es un libro de referencia, no reemplaza la contabilidad oficial del tesorero.</p>
     `;
   }
 
