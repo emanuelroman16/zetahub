@@ -1,6 +1,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Zeta Hub — Phi Sigma Alpha, Capítulo Zeta</title>
+<title>Zeta Hub — Phi Sigma Alpha, Capítulo Zeta (Arecibo)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Public+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
@@ -14,6 +14,8 @@
     --ink-faint:#6c7280;
     --border:#24272e;
     --chrome:#8ab4ff;
+    --accent:#4c8dff;
+    --accent-soft:rgba(76,141,255,.14);
     --pill:#ffffff;
     --pill-ink:#0b0c0f;
     --radius-lg:22px;
@@ -30,7 +32,7 @@
     -webkit-font-smoothing:antialiased;
   }
   a{color:inherit;}
-  .wrap{max-width:640px;margin:0 auto;padding:0 20px calc(48px + env(safe-area-inset-bottom));}
+  .wrap{max-width:680px;margin:0 auto;padding:0 20px calc(56px + env(safe-area-inset-bottom));}
 
   .hero{
     position:relative;overflow:hidden;text-align:center;
@@ -49,29 +51,82 @@
     box-shadow:inset 0 1px 1px rgba(255,255,255,.6), inset 0 -3px 5px rgba(0,0,0,.25);
   }
   .eyebrow{font-size:.72rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--chrome);}
-  h1{font-family:var(--font-display);font-weight:800;font-size:2.2rem;letter-spacing:-.02em;margin:10px 0 8px;text-wrap:balance;}
-  .tagline{color:var(--ink-soft);font-size:1rem;line-height:1.55;max-width:440px;margin:0 auto 28px;}
+  h1{font-family:var(--font-display);font-weight:800;font-size:2.2rem;letter-spacing:-.02em;margin:10px 0 6px;text-wrap:balance;}
+  .motto{font-style:italic;color:var(--ink-soft);font-size:1.05rem;margin:0 0 14px;}
+  .tagline{color:var(--ink-soft);font-size:1rem;line-height:1.55;max-width:480px;margin:0 auto 28px;}
+  .cta-row{display:flex;flex-direction:column;gap:10px;align-items:center;}
   .cta{
-    display:inline-flex;align-items:center;gap:8px;
+    display:inline-flex;align-items:center;justify-content:center;gap:8px;width:100%;max-width:340px;
     background:var(--pill);color:var(--pill-ink);
     font-family:var(--font-body);font-weight:800;font-size:.95rem;
     padding:15px 26px;border-radius:999px;text-decoration:none;
-    box-shadow:var(--shadow-card);
+    box-shadow:var(--shadow-card);border:none;cursor:pointer;
   }
   .cta:active{transform:scale(.97);}
+  .cta-ghost{background:transparent;color:var(--ink);border:1.5px solid var(--border);box-shadow:none;}
 
-  section{padding:40px 0;}
+  section{padding:44px 0;}
+  section.tight{padding:24px 0;}
   .section-eyebrow{font-size:.7rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint);text-align:center;margin-bottom:8px;}
-  h2{font-family:var(--font-display);font-weight:700;font-size:1.4rem;text-align:center;margin:0 0 28px;text-wrap:balance;}
+  h2{font-family:var(--font-display);font-weight:700;font-size:1.5rem;text-align:center;margin:0 0 16px;text-wrap:balance;}
+  .lede{color:var(--ink-soft);font-size:.95rem;line-height:1.65;text-align:center;max-width:560px;margin:0 auto;}
+  .lede + .lede{margin-top:14px;}
 
-  .pillars{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
-  @media (max-width:520px){.pillars{grid-template-columns:1fr;}}
+  .pillars{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:28px;}
+  @media (max-width:560px){.pillars{grid-template-columns:1fr;}}
   .pillar{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;text-align:center;}
   .pillar-icon{font-size:1.8rem;margin-bottom:10px;}
   .pillar h3{font-family:var(--font-display);font-size:1rem;margin:0 0 6px;}
   .pillar p{color:var(--ink-soft);font-size:.85rem;line-height:1.5;margin:0;}
 
-  #events-list{display:flex;flex-direction:column;gap:10px;}
+  .myth-card{
+    background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);
+    padding:24px;margin-top:24px;
+  }
+  .myth-row{display:flex;gap:14px;align-items:flex-start;margin-bottom:16px;}
+  .myth-row:last-child{margin-bottom:0;}
+  .myth-tag{
+    flex-shrink:0;font-family:var(--font-mono);font-size:.65rem;font-weight:700;
+    padding:4px 9px;border-radius:999px;text-transform:uppercase;letter-spacing:.04em;margin-top:2px;
+  }
+  .myth-tag.no{background:rgba(248,113,113,.14);color:#f87171;}
+  .myth-tag.si{background:rgba(61,220,154,.14);color:#3ddc9a;}
+  .myth-row p{margin:0;color:var(--ink-soft);font-size:.88rem;line-height:1.55;}
+  .myth-row strong{color:var(--ink);}
+
+  .steps{display:flex;flex-direction:column;gap:12px;margin-top:24px;}
+  .step{display:flex;gap:14px;align-items:flex-start;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:16px;}
+  .step-num{
+    flex-shrink:0;width:30px;height:30px;border-radius:50%;background:var(--accent-soft);color:var(--chrome);
+    display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:800;font-size:.9rem;
+  }
+  .step p{margin:0;color:var(--ink-soft);font-size:.85rem;line-height:1.5;}
+  .step strong{color:var(--ink);display:block;font-size:.92rem;margin-bottom:2px;}
+
+  .gallery{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:24px;}
+  .gallery-slot{
+    aspect-ratio:1;border-radius:var(--radius-md);background:var(--surface-2);border:1px dashed var(--border);
+    display:flex;align-items:center;justify-content:center;color:var(--ink-faint);font-size:1.4rem;
+  }
+
+  form.signup{
+    background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);
+    padding:24px;margin-top:24px;display:flex;flex-direction:column;gap:14px;
+  }
+  .field label{display:block;font-size:.76rem;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;}
+  .field input, .field textarea{
+    width:100%;font-family:var(--font-body);font-size:.92rem;
+    padding:12px 13px;border-radius:10px;border:1.5px solid var(--border);
+    background:var(--surface-2);color:var(--ink);
+  }
+  .field textarea{resize:vertical;min-height:70px;}
+  .field input:focus, .field textarea:focus{outline:none;border-color:var(--accent);}
+  .form-hint{color:var(--ink-faint);font-size:.76rem;margin:0;}
+  .form-error{color:#f87171;font-size:.8rem;font-weight:600;display:none;}
+  .form-success{display:none;text-align:center;padding:12px 4px;}
+  .form-success .big{font-size:2rem;margin-bottom:8px;}
+
+  #events-list{display:flex;flex-direction:column;gap:10px;margin-top:24px;}
   .event-row{
     display:flex;align-items:center;gap:14px;
     background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:14px 16px;
@@ -84,16 +139,20 @@
   .event-meta{color:var(--ink-soft);font-size:.78rem;margin-top:2px;}
   .empty{color:var(--ink-faint);text-align:center;font-size:.85rem;padding:20px;}
 
-  .final-cta{text-align:center;padding:44px 0 8px;}
-  footer{text-align:center;color:var(--ink-faint);font-size:.75rem;padding:24px 0;}
+  .final-cta{text-align:center;padding:48px 0 8px;}
+  footer{text-align:center;color:var(--ink-faint);font-size:.75rem;padding:24px 0;line-height:1.6;}
 </style>
 
 <div class="hero">
   <div class="crest">ΦΣΑ</div>
-  <div class="eyebrow">Phi Sigma Alpha</div>
-  <h1>Capítulo Zeta</h1>
-  <p class="tagline">Hermandad, servicio comunitario y vida social en Puerto Rico. Conoce lo que hacemos y entra al portal para ver eventos, la tienda y más.</p>
-  <a class="cta" href="portal.html">Entrar al Portal de Actividades →</a>
+  <div class="eyebrow">Capítulo Zeta · Área de Arecibo</div>
+  <h1>Phi Sigma Alpha</h1>
+  <p class="motto">"Caballeros Ante Todo"</p>
+  <p class="tagline">Somos el área de Arecibo de Phi Sigma Alpha, fraternidad nacional fundada en 1928 en la UPR Río Piedras. Una organización estudiantil sin fines de lucro basada en hermandad, servicio y crecimiento personal.</p>
+  <div class="cta-row">
+    <a class="cta" href="#unete">Quiero conocerlos — sin compromiso</a>
+    <a class="cta cta-ghost" href="portal.html">Acceder al Portal / Calendario</a>
+  </div>
 </div>
 
 <div class="wrap">
@@ -109,7 +168,7 @@
       <div class="pillar">
         <div class="pillar-icon">🌎</div>
         <h3>Servicio comunitario</h3>
-        <p>Actividades cívicas y de servicio para devolverle a la comunidad que nos rodea.</p>
+        <p>Actividades cívicas y de servicio para devolverle a la comunidad del área de Arecibo.</p>
       </div>
       <div class="pillar">
         <div class="pillar-icon">🎉</div>
@@ -120,17 +179,97 @@
   </section>
 
   <section>
+    <div class="section-eyebrow">Lo que mucha gente no sabe</div>
+    <h2>¿Qué es realmente una fraternidad?</h2>
+    <p class="lede">Sabemos que hay una percepción negativa de las fraternidades. La realidad, para nosotros, es otra: es un espacio para crecer como persona, como hombre, y encontrar hermanos con quien contar de verdad.</p>
+    <div class="myth-card">
+      <div class="myth-row">
+        <span class="myth-tag no">Percepción</span>
+        <p>"Es solo fiesta y presión de grupo."</p>
+      </div>
+      <div class="myth-row">
+        <span class="myth-tag si">Realidad</span>
+        <p><strong>Te ayuda a crecer.</strong> Aprendes a ser mejor persona, a asumir responsabilidad y a manejarte en el mundo adulto — con gente que te acompaña en ese proceso, no que te lo hace más difícil.</p>
+      </div>
+      <div class="myth-row">
+        <span class="myth-tag si">Realidad</span>
+        <p><strong>Ganas hermanos, no solo amigos.</strong> Gente en quien confiar y a quien buscar cuando de verdad lo necesites — no solo para los buenos tiempos.</p>
+      </div>
+      <div class="myth-row">
+        <span class="myth-tag si">Realidad</span>
+        <p><strong>Todos estamos en las mismas.</strong> Nadie llega sabiéndolo todo — se aprende y se crece en comunidad, un paso a la vez.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="unete">
+    <div class="section-eyebrow">¿Cómo se hace?</div>
+    <h2>Así es el proceso</h2>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <p><strong>Regístrate abajo.</strong> Nos dejas tu nombre y contacto — no es un compromiso de nada, es solo para poder invitarte.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <p><strong>Te invitamos a un evento abierto.</strong> Un smoker u otra actividad donde puedes conocer al capítulo, ver el ambiente y hacer preguntas sin presión.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <p><strong>Decides tú.</strong> Si te gusta lo que ves y quieres seguir el proceso para unirte, ahí te explicamos los próximos pasos y requisitos con calma.</p>
+      </div>
+    </div>
+
+    <form class="signup" id="signup-form">
+      <h3 style="font-family:var(--font-display);margin:0;font-size:1.1rem;">Quiero que me inviten</h3>
+      <div class="field">
+        <label for="sf-name">Nombre completo</label>
+        <input id="sf-name" placeholder="Nombre y apellido" required>
+      </div>
+      <div class="field">
+        <label for="sf-contact">Teléfono o email</label>
+        <input id="sf-contact" placeholder="787-000-0000" required>
+      </div>
+      <div class="field">
+        <label for="sf-message">¿Algo que quieras contarnos? (opcional)</label>
+        <textarea id="sf-message" placeholder="Ej. universidad, cómo te enteraste de nosotros..."></textarea>
+      </div>
+      <p class="form-error" id="sf-error"></p>
+      <button type="submit" class="cta" style="max-width:none;">Enviar — sin compromiso</button>
+      <p class="form-hint">Solo lo usamos para invitarte a actividades. No te unes a nada todavía.</p>
+      <div class="form-success" id="sf-success">
+        <div class="big">✅</div>
+        <p style="margin:0;font-weight:700;">¡Listo! Te vamos a contactar pronto.</p>
+      </div>
+    </form>
+  </section>
+
+  <section class="tight">
+    <div class="section-eyebrow">Así se ve</div>
+    <h2>Nuestra hermandad en fotos</h2>
+    <p class="lede">Pronto vas a ver aquí fotos reales de nuestras actividades — mientras tanto, la mejor forma de conocernos es en persona. Regístrate arriba.</p>
+    <div class="gallery">
+      <div class="gallery-slot">📷</div>
+      <div class="gallery-slot">📷</div>
+      <div class="gallery-slot">📷</div>
+    </div>
+  </section>
+
+  <section>
     <div class="section-eyebrow">Agenda</div>
     <h2>Próximos eventos abiertos al público</h2>
     <div id="events-list"><p class="empty">Cargando…</p></div>
   </section>
 
   <div class="final-cta">
-    <a class="cta" href="portal.html">Entrar al Portal de Actividades →</a>
+    <a class="cta" href="#unete" style="max-width:340px;">Quiero conocerlos — sin compromiso</a>
   </div>
 </div>
 
-<footer>Phi Sigma Alpha · Capítulo Zeta</footer>
+<footer>
+  Phi Sigma Alpha · Capítulo Zeta · Área de Arecibo<br>
+  Organización estudiantil sin fines de lucro
+</footer>
 
 <script>
 const SUPABASE_URL = 'https://jxspulzybmcpkwklrrfs.supabase.co';
@@ -173,4 +312,41 @@ async function loadPublicEvents(){
   }
 }
 loadPublicEvents();
+
+document.getElementById('signup-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const name = document.getElementById('sf-name').value.trim();
+  const contact = document.getElementById('sf-contact').value.trim();
+  const message = document.getElementById('sf-message').value.trim();
+  const errEl = document.getElementById('sf-error');
+  const form = document.getElementById('signup-form');
+  errEl.style.display = 'none';
+  if(!name || !contact){
+    errEl.textContent = 'Escribe tu nombre y contacto.';
+    errEl.style.display = 'block';
+    return;
+  }
+  const submitBtn = form.querySelector('button[type="submit"]');
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Enviando…';
+  try{
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/prospects`, {
+      method: 'POST',
+      headers: {
+        apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json', Prefer: 'return=minimal',
+      },
+      body: JSON.stringify({ name, contact, message: message || null }),
+    });
+    if(!res.ok) throw new Error(`Supabase ${res.status}`);
+    Array.from(form.children).forEach(child => { if(child.id !== 'sf-success') child.style.display = 'none'; });
+    document.getElementById('sf-success').style.display = 'block';
+  }catch(err){
+    console.error('Error enviando formulario:', err);
+    errEl.textContent = 'No se pudo enviar. Intenta de nuevo.';
+    errEl.style.display = 'block';
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Enviar — sin compromiso';
+  }
+});
 </script>

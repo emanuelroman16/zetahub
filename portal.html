@@ -508,6 +508,7 @@ const state = {
   publicPurchases:[],
   tickets:[],
   publicTickets:[],
+  prospects:[],
   fineOverrides:{}, // key `${activityId}:${memberId}` -> 'pagada' | 'exonerada'
   loading:true,
   loadError:null,
@@ -625,6 +626,20 @@ async function fetchMembers(){
     render();
   }catch(err){
     console.error('Error cargando fraternos:', err);
+  }
+}
+
+/* Los interesados que llenan el formulario en la página de inicio
+   pública solo se pueden leer con la contraseña de directiva — son
+   datos de contacto de gente que todavía no es fraterno. */
+async function fetchProspects(){
+  if(!(state.adminAuthed && state.adminPassword)){ state.prospects = []; return; }
+  try{
+    const rows = await sbRpc('admin_list_prospects', {p_admin_password: state.adminPassword});
+    state.prospects = rows || [];
+    render();
+  }catch(err){
+    console.error('Error cargando interesados:', err);
   }
 }
 
@@ -1035,6 +1050,7 @@ async function submitAdminLogin(){
       render();
       fetchDocs();
       fetchMembers();
+      fetchProspects();
     } else {
       errEl.textContent = 'Contraseña incorrecta.';
       errEl.style.display='block';
@@ -1048,6 +1064,7 @@ async function submitAdminLogin(){
 function adminLogout(){
   state.adminAuthed = false;
   state.adminPassword = null;
+  state.prospects = [];
   goRoute('profile');
   fetchDocs();
   fetchMembers();
@@ -2263,6 +2280,45 @@ async function deleteMember(memberId){
   }
 }
 
+/* ---- Interesados (formulario público "Quiero que me inviten") ---- */
+async function toggleProspectStatus(id){
+  const p = state.prospects.find(x=>x.id===id);
+  if(!p) return;
+  const prev = p.status;
+  p.status = p.status==='contactado' ? 'nuevo' : 'contactado';
+  render();
+  try{
+    const ok = await sbRpc('admin_update_prospect_status', {p_admin_password: state.adminPassword, p_id:id, p_status:p.status});
+    if(ok!==true) throw new Error('rechazado');
+  }catch(err){
+    console.error(err);
+    p.status = prev; render();
+    alert('No se pudo actualizar. Intenta de nuevo.');
+  }
+}
+function deleteProspectConfirm(id){
+  openModal(`
+    <h3>¿Eliminar este interesado?</h3>
+    <p class="lede" style="margin-bottom:14px;">Esta acción no se puede deshacer.</p>
+    <div class="stack">
+      <button class="btn btn-danger-line btn-block" onclick="deleteProspect(${id})">Sí, eliminar</button>
+      <button class="btn btn-ghost btn-block" onclick="closeModal()">Cancelar</button>
+    </div>
+  `);
+}
+async function deleteProspect(id){
+  closeModal();
+  try{
+    const ok = await sbRpc('admin_delete_prospect', {p_admin_password: state.adminPassword, p_id:id});
+    if(ok!==true) throw new Error('rechazado');
+    state.prospects = state.prospects.filter(x=>x.id!==id);
+    render();
+  }catch(err){
+    console.error(err);
+    alert('No se pudo eliminar. Intenta de nuevo.');
+  }
+}
+
 /* ---------- Panel de Directiva ---------- */
 function viewAdmin(){
   const totalActivos = MEMBERS.length;
@@ -2273,7 +2329,8 @@ function viewAdmin(){
 
   const tabs = [
     ['eventos','Eventos'],['asistencia','Asistencia'],['productos','Productos'],['tienda','Ventas'],
-    ['taquillas','Taquillas'],['multas','Multas'],['activos','Fraternos'],['documentos','Documentos'],['ajustes','Ajustes']
+    ['taquillas','Taquillas'],['multas','Multas'],['activos','Fraternos'],['interesados','Interesados'],
+    ['documentos','Documentos'],['ajustes','Ajustes']
   ];
 
   return `
@@ -2477,6 +2534,29 @@ function adminTabContent(){
       <button class="btn btn-primary btn-block" onclick="openMemberFormModal(null)">+ Nuevo fraterno</button>
       <div class="card">${rows || `<div class="empty-state">No hay fraternos todavía.</div>`}</div>
       <p class="hint-text">Toca el nombre para ver su historial completo de asistencia, multas y compras. "Editar" cambia su info, PIN y cumpleaños.</p>
+    `;
+  }
+
+  if(state.adminTab==='interesados'){
+    if(!state.prospects.length) return `<div class="empty-state">No hay interesados todavía. Aparecen aquí cuando alguien llena "Quiero que me inviten" en la página de inicio.</div>`;
+    const rows = state.prospects.map(p=>`
+      <div class="card-flat">
+        <div class="row-between" style="align-items:flex-start;">
+          <div class="col">
+            <strong style="font-size:.92rem;">${p.name}</strong>
+            <span class="hint-text">${p.contact}</span>
+          </div>
+          <span class="chip ${p.status==='contactado'?'chip-success':'chip-warning'}">${p.status==='contactado'?'Contactado':'Nuevo'}</span>
+        </div>
+        ${p.message ? `<p class="hint-text" style="margin:8px 0 0;">"${p.message}"</p>` : ''}
+        <div class="row" style="gap:6px;margin-top:10px;flex-wrap:wrap;">
+          <button class="btn btn-ghost btn-sm" onclick="toggleProspectStatus(${p.id})">${p.status==='contactado'?'Marcar nuevo':'Marcar contactado'}</button>
+          <button class="btn btn-danger-line btn-sm" onclick="deleteProspectConfirm(${p.id})">Eliminar</button>
+        </div>
+      </div>`).join('');
+    return `
+      <div class="stack">${rows}</div>
+      <p class="hint-text">Gente que llenó "Quiero que me inviten" en la página de inicio pública.</p>
     `;
   }
 
