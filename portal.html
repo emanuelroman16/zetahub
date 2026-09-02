@@ -509,6 +509,7 @@ const state = {
   tickets:[],
   publicTickets:[],
   prospects:[],
+  transactions:[],
   fineOverrides:{}, // key `${activityId}:${memberId}` -> 'pagada' | 'exonerada'
   loading:true,
   loadError:null,
@@ -640,6 +641,19 @@ async function fetchProspects(){
     render();
   }catch(err){
     console.error('Error cargando interesados:', err);
+  }
+}
+
+/* El libro de ingresos/gastos solo se carga para la directiva — a los
+   fraternos normales no les hace falta y así no se pide de más. */
+async function fetchTransactions(){
+  if(!(state.adminAuthed && state.adminPassword)){ state.transactions = []; return; }
+  try{
+    const rows = await sb('transactions?select=*&order=date.desc');
+    state.transactions = rows || [];
+    render();
+  }catch(err){
+    console.error('Error cargando transacciones:', err);
   }
 }
 
@@ -1051,6 +1065,7 @@ async function submitAdminLogin(){
       fetchDocs();
       fetchMembers();
       fetchProspects();
+      fetchTransactions();
     } else {
       errEl.textContent = 'Contraseña incorrecta.';
       errEl.style.display='block';
@@ -1065,6 +1080,7 @@ function adminLogout(){
   state.adminAuthed = false;
   state.adminPassword = null;
   state.prospects = [];
+  state.transactions = [];
   goRoute('profile');
   fetchDocs();
   fetchMembers();
@@ -1215,6 +1231,25 @@ function openDayEvents(ids){
     <p class="lede" style="margin-bottom:12px;">${acts.length===1?'1 evento este día':acts.length+' eventos este día'}</p>
     <div class="stack">
       ${acts.map(a=>eventTicketCardHtml(a, {clickable:true})).join('')}
+    </div>
+    <button class="btn btn-ghost btn-block" style="margin-top:14px;" onclick="closeModal()">Cerrar</button>
+  `);
+}
+/* Selector de actividad para la pestaña Asistencia del panel de
+   Directiva — antes era un <select> nativo, feo y difícil de escanear
+   con muchos eventos. Ahora es una tarjeta que abre una lista real. */
+function openAdminActivityPicker(){
+  const sorted = ACTIVITIES.slice().sort((a,b)=>new Date(b.date)-new Date(a.date));
+  openModal(`
+    <h3>Elegir actividad</h3>
+    <div class="stack" style="max-height:60vh;overflow-y:auto;">
+      ${sorted.map(a=>`
+        <div class="list-item" style="border-left:3px solid var(${CATS[a.category].color});padding-left:11px;" onclick="state.adminActivity='${a.id}'; closeModal(); render();">
+          <div class="col" style="flex:1;">
+            <span class="list-title">${a.title}</span>
+            <span class="list-sub">${CATS[a.category].label} · ${fmtDateShort(a.date)}</span>
+          </div>
+        </div>`).join('')}
     </div>
     <button class="btn btn-ghost btn-block" style="margin-top:14px;" onclick="closeModal()">Cerrar</button>
   `);
@@ -2319,6 +2354,65 @@ async function deleteProspect(id){
   }
 }
 
+/* ---- Libro de ingresos/gastos (Finanzas > Cuenta) ---- */
+function openTransactionFormModal(){
+  openModal(`
+    <h3>Nuevo registro</h3>
+    <div class="stack">
+      <div class="field"><label for="tx-date">Fecha</label><input id="tx-date" type="date" class="input" value="${todayISO()}"></div>
+      <div class="field"><label for="tx-desc">Descripción</label><input id="tx-desc" class="input" placeholder="Ej. Renta de local, venta de camisas..."></div>
+      <div class="field"><label for="tx-type">Tipo</label>
+        <select id="tx-type" class="input">
+          <option value="ingreso">Ingreso</option>
+          <option value="gasto">Gasto</option>
+        </select>
+      </div>
+      <div class="field"><label for="tx-amount">Monto</label><input id="tx-amount" type="number" min="0" step="0.01" class="input" placeholder="0.00"></div>
+      <p id="tx-error" class="error-text" style="display:none;">Completa descripción y monto.</p>
+      <button class="btn btn-primary btn-block" onclick="saveTransactionForm()">Guardar</button>
+      <button class="btn btn-ghost btn-block" onclick="closeModal()">Cancelar</button>
+    </div>
+  `);
+}
+async function saveTransactionForm(){
+  const date = document.getElementById('tx-date').value || todayISO();
+  const description = document.getElementById('tx-desc').value.trim();
+  const type = document.getElementById('tx-type').value;
+  const amount = parseFloat(document.getElementById('tx-amount').value);
+  const errEl = document.getElementById('tx-error');
+  if(!description || isNaN(amount) || amount<0){ errEl.textContent='Completa descripción y monto.'; errEl.style.display='block'; return; }
+  try{
+    await sb('transactions', {method:'POST', headers:{'Prefer':'return=minimal'}, body: JSON.stringify({date, description, type, amount})});
+    closeModal();
+    await fetchTransactions();
+  }catch(err){
+    console.error(err);
+    errEl.textContent = 'No se pudo guardar. Intenta de nuevo.';
+    errEl.style.display='block';
+  }
+}
+function deleteTransactionConfirm(id){
+  openModal(`
+    <h3>¿Eliminar este registro?</h3>
+    <p class="lede" style="margin-bottom:14px;">Esta acción no se puede deshacer.</p>
+    <div class="stack">
+      <button class="btn btn-danger-line btn-block" onclick="deleteTransaction(${id})">Sí, eliminar</button>
+      <button class="btn btn-ghost btn-block" onclick="closeModal()">Cancelar</button>
+    </div>
+  `);
+}
+async function deleteTransaction(id){
+  closeModal();
+  try{
+    await sb(`transactions?id=eq.${id}`, {method:'DELETE'});
+    state.transactions = state.transactions.filter(x=>x.id!==id);
+    render();
+  }catch(err){
+    console.error(err);
+    alert('No se pudo eliminar. Intenta de nuevo.');
+  }
+}
+
 /* ---------- Panel de Directiva ---------- */
 /* Los 10 tabs planos eran una pared difícil de escanear — se agrupan
    en categorías (control segmentado arriba) + sub-tabs de la
@@ -2327,7 +2421,7 @@ async function deleteProspect(id){
    state.adminTab, no hace falta guardar estado nuevo. */
 const ADMIN_TAB_GROUPS = [
   {key:'actividades', label:'📅 Actividades', tabs:[['eventos','Eventos'],['asistencia','Asistencia']]},
-  {key:'finanzas', label:'💵 Finanzas', tabs:[['productos','Productos'],['tienda','Ventas'],['taquillas','Taquillas'],['multas','Multas']]},
+  {key:'finanzas', label:'💵 Finanzas', tabs:[['cuenta','Cuenta'],['productos','Productos'],['tienda','Ventas'],['taquillas','Taquillas'],['multas','Multas']]},
   {key:'personas', label:'👥 Personas', tabs:[['activos','Fraternos'],['interesados','Interesados']]},
   {key:'contenido', label:'📄 Contenido', tabs:[['documentos','Documentos'],['ajustes','Ajustes']]},
 ];
@@ -2347,31 +2441,26 @@ function viewAdmin(){
     </div>
     <h1 class="page-title">Directiva</h1>
     <div class="stat-grid">
-      <div class="stat-card" style="border-left:3px solid var(--accent);">
+      <div class="stat-card" style="border-left:3px solid var(--accent);cursor:pointer;" onclick="state.adminTab='activos'; render();">
         <div class="row-between"><div class="stat-num">${totalActivos}</div><span style="font-size:1.15rem;opacity:.7;">👥</span></div>
         <div class="stat-label">Total activos</div>
       </div>
-      <div class="stat-card" style="border-left:3px solid var(--cat-capitular);">
+      <div class="stat-card" style="border-left:3px solid var(--cat-capitular);cursor:pointer;" onclick="state.adminTab='asistencia'; render();">
         <div class="row-between"><div class="stat-num">${confirmedNext}/${totalActivos}</div><span style="font-size:1.15rem;opacity:.7;">✅</span></div>
         <div class="stat-label">Confirmados próx. actividad</div>
       </div>
-      <div class="stat-card" style="border-left:3px solid ${pendingFines>0?'var(--danger)':'var(--border)'};">
+      <div class="stat-card" style="border-left:3px solid ${pendingFines>0?'var(--danger)':'var(--border)'};cursor:pointer;" onclick="state.adminTab='multas'; render();">
         <div class="row-between"><div class="stat-num" style="color:${pendingFines>0?'var(--danger)':'var(--ink)'};">${pendingFines}</div><span style="font-size:1.15rem;opacity:.7;">⚠️</span></div>
         <div class="stat-label">Multas pendientes</div>
       </div>
-      <div class="stat-card" style="border-left:3px solid var(--success);">
+      <div class="stat-card" style="border-left:3px solid var(--success);cursor:pointer;" onclick="state.adminTab='tienda'; render();">
         <div class="row-between"><div class="stat-num">${money(salesMonth)}</div><span style="font-size:1.15rem;opacity:.7;">💵</span></div>
         <div class="stat-label">Ventas registradas</div>
       </div>
-    </div>
-    ${newProspects>0 ? `
-    <div class="banner" style="background:var(--warning-soft);border-color:var(--warning);color:var(--warning);cursor:pointer;" onclick="state.adminTab='interesados'; render();">
-      <div>🎯</div>
-      <div><strong>${newProspects} interesado${newProspects>1?'s':''} nuevo${newProspects>1?'s':''}</strong> esperando que los contactes — toca para verlos.</div>
-    </div>` : ''}
-    <div class="banner">
-      <div>ℹ️</div>
-      <div>Estos totales son de referencia. El registro oficial del dinero lo mantiene el tesorero en su Excel.</div>
+      <div class="stat-card" style="border-left:3px solid ${newProspects>0?'var(--warning)':'var(--border)'};cursor:pointer;" onclick="state.adminTab='interesados'; render();">
+        <div class="row-between"><div class="stat-num" style="color:${newProspects>0?'var(--warning)':'var(--ink)'};">${newProspects}</div><span style="font-size:1.15rem;opacity:.7;">🎯</span></div>
+        <div class="stat-label">Interesados nuevos</div>
+      </div>
     </div>
     <div class="segmented" style="margin-top:4px;">
       ${ADMIN_TAB_GROUPS.map(g=>`<button class="${g.key===activeGroup.key?'active':''}" onclick="state.adminTab='${g.tabs[0][0]}'; render();">${g.label}</button>`).join('')}
@@ -2384,6 +2473,30 @@ function viewAdmin(){
 }
 
 function adminTabContent(){
+  if(state.adminTab==='cuenta'){
+    const balance = state.transactions.reduce((s,t)=> s + (t.type==='ingreso'?t.amount:-t.amount), 0);
+    const rows = state.transactions.map(t=>`
+      <tr>
+        <td>${fmtDateShort(t.date)}</td>
+        <td>${t.description}</td>
+        <td><span class="chip ${t.type==='ingreso'?'chip-success':'chip-danger'}">${t.type==='ingreso'?'Ingreso':'Gasto'}</span></td>
+        <td class="num">${t.type==='ingreso'?'+':'−'}${money(t.amount)}</td>
+        <td><button class="btn btn-ghost btn-sm" onclick="deleteTransactionConfirm(${t.id})">Eliminar</button></td>
+      </tr>`).join('');
+    return `
+      <div class="card" style="text-align:center;">
+        <div class="stat-label">Balance de la cuenta</div>
+        <div class="stat-num" style="font-size:2.1rem;margin-top:6px;color:${balance>=0?'var(--success)':'var(--danger)'};">${money(balance)}</div>
+      </div>
+      <button class="btn btn-primary btn-block" onclick="openTransactionFormModal()">+ Nuevo registro</button>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Fecha</th><th>Descripción</th><th>Tipo</th><th class="num">Monto</th><th></th></tr></thead>
+        <tbody>${rows || `<tr><td colspan="5" style="text-align:center;color:var(--ink-faint);padding:20px;">Sin registros todavía.</td></tr>`}</tbody>
+      </table></div>
+      <p class="hint-text">Ingresos y gastos que registre la directiva a mano — es un libro de referencia, no reemplaza la contabilidad oficial del tesorero.</p>
+    `;
+  }
+
   if(state.adminTab==='eventos'){
     const rows = ACTIVITIES.slice().sort((a,b)=>new Date(a.date)-new Date(b.date)).map(a=>`
       <div class="list-item" style="cursor:default;">
@@ -2406,13 +2519,19 @@ function adminTabContent(){
 
   if(state.adminTab==='asistencia'){
     if(!ACTIVITIES.length) return `<div class="empty-state">No hay eventos todavía.</div>`;
-    const opts = ACTIVITIES.slice().sort((a,b)=>new Date(b.date)-new Date(a.date))
-      .map(a=>`<option value="${a.id}" ${state.adminActivity===a.id?'selected':''}>${a.title} — ${fmtDateShort(a.date)}</option>`).join('');
-    const act = byId(ACTIVITIES, state.adminActivity) || ACTIVITIES[0];
+    const sortedActs = ACTIVITIES.slice().sort((a,b)=>new Date(b.date)-new Date(a.date));
+    const act = byId(ACTIVITIES, state.adminActivity) || sortedActs[0];
     const past = isPast(act.date);
     const picker = `
-      <div class="field"><label for="admin-act-select">Actividad</label>
-        <select id="admin-act-select" class="input" onchange="state.adminActivity=this.value; render();">${opts}</select>
+      <div class="card-flat" style="cursor:pointer;" onclick="openAdminActivityPicker()">
+        <div class="row-between">
+          <div class="col">
+            <span class="hint-text">ACTIVIDAD SELECCIONADA</span>
+            <strong style="font-size:.95rem;">${act.title}</strong>
+            <span class="list-sub">${CATS[act.category].label} · ${fmtDateShort(act.date)}</span>
+          </div>
+          <span class="chevron">›</span>
+        </div>
       </div>`;
     if(!MEMBERS.length){
       return `${picker}<div class="empty-state">No hay fraternos cargados todavía. Agrégalos en la pestaña "Fraternos".</div>`;
@@ -2478,7 +2597,12 @@ function adminTabContent(){
           <td>${f.activityTitle}</td>
           <td>${f.reason}</td>
           <td><span class="chip ${f.paid?'chip-success':'chip-danger'}">${f.paid?'Pagada':'Pendiente'}</span></td>
-          <td><button class="btn btn-ghost btn-sm" onclick="toggleFineStatus('${f.key}')">${f.paid?'Marcar pendiente':'Marcar pagada'}</button></td>
+          <td>
+            <div class="row" style="gap:6px;flex-wrap:wrap;">
+              <button class="btn btn-ghost btn-sm" onclick="toggleFineStatus('${f.key}')">${f.paid?'Marcar pendiente':'Marcar pagada'}</button>
+              <button class="btn btn-ghost btn-sm" onclick="exonerateFine('${f.key}')">Exonerar</button>
+            </div>
+          </td>
         </tr>`).join('')}</tbody>
     </table></div>`;
   }
