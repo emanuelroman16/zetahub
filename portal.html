@@ -286,6 +286,50 @@
   .hint-text{color:var(--ink-faint);font-size:.76rem;}
   textarea.input{resize:vertical;min-height:70px;font-family:var(--font-body);}
 
+  /* ---------- Selector de taquillas (categoría en tarjetas + cantidad con contador) ---------- */
+  .tier-cards{display:flex;flex-direction:column;gap:8px;}
+  .tier-card{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    width:100%;text-align:left;font-family:var(--font-body);
+    padding:13px 15px;border-radius:var(--radius-md);
+    border:1.5px solid var(--border);background:var(--surface-2);color:var(--ink);
+    cursor:pointer;transition:border-color .15s ease, background .15s ease;
+  }
+  .tier-card:active{transform:scale(.98);}
+  .tier-card.active{border-color:var(--accent);background:var(--accent-soft);}
+  .tier-card-label{font-weight:700;font-size:.9rem;}
+  .tier-card-price{font-family:var(--font-mono);font-weight:600;color:var(--ink-soft);}
+  .tier-card.active .tier-card-price{color:var(--accent-strong);}
+  .tier-card-check{
+    width:20px;height:20px;border-radius:50%;flex-shrink:0;
+    border:1.5px solid var(--border);color:#fff;font-size:.7rem;font-weight:700;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .tier-card.active .tier-card-check{border-color:var(--accent);background:var(--accent);}
+
+  .qty-stepper{display:flex;align-items:center;justify-content:center;gap:20px;padding:4px 0;}
+  .qty-btn{
+    width:44px;height:44px;border-radius:50%;flex-shrink:0;
+    border:1.5px solid var(--border);background:var(--surface-2);color:var(--ink);
+    font-size:1.3rem;font-weight:700;line-height:1;
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;transition:border-color .15s ease, opacity .15s ease;
+  }
+  .qty-btn:active{transform:scale(.94);}
+  .qty-btn[disabled]{opacity:.35;cursor:not-allowed;}
+  .qty-input{
+    width:48px;text-align:center;
+    font-family:var(--font-mono);font-size:1.4rem;font-weight:700;color:var(--ink);
+    background:transparent;border:none;pointer-events:none;
+  }
+  .ticket-total-row{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:14px 16px;border-radius:var(--radius-md);
+    background:var(--surface-2);border:1px solid var(--border);
+  }
+  .ticket-total-label{font-size:.8rem;color:var(--ink-soft);font-weight:600;}
+  .ticket-total-amount{font-family:var(--font-mono);font-size:1.25rem;font-weight:700;color:var(--ink);}
+
   /* ---------- Modal ---------- */
   .modal-backdrop{
     position:fixed;inset:0;background:rgba(3,4,5,.7);backdrop-filter:blur(2px);
@@ -513,7 +557,7 @@ const state = {
   route:'events',
   selectedActivity:null,
   selectedProduct:null,
-  currentMemberId:null,
+  currentMemberId: localStorage.getItem('zetahub_member_id') || null,
   adminAuthed:false,
   adminPassword:null,
   adminTab:'home',
@@ -552,6 +596,15 @@ async function loadFromSupabase(){
     MEMBERS.length = 0; (mems||[]).forEach(r=>MEMBERS.push(mapMemberRow(r)));
     SHOP_ITEMS.length = 0; (shop||[]).forEach(r=>SHOP_ITEMS.push(mapShopRow(r)));
     DOCS.length = 0; (docs||[]).forEach(r=>DOCS.push(mapDocRow(r)));
+
+    /* La identidad persiste en localStorage para no pedir cumpleaños/PIN
+       en cada visita — pero si el fraterno guardado ya no existe (lo
+       borraron del roster), se limpia para no dejar la sesión en un
+       estado inválido. */
+    if(state.currentMemberId && !member(state.currentMemberId)){
+      state.currentMemberId = null;
+      localStorage.removeItem('zetahub_member_id');
+    }
 
     (rsvps||[]).forEach(r=>{
       const a = byId(ACTIVITIES, r.activity_id);
@@ -865,6 +918,17 @@ function openIdentifyModal(){
 /* El primer fraterno que selecciona su nombre todavía no tiene PIN
    (hasPin===false) — ahí se le pide crear su PIN y decir su cumpleaños
    en vez de pedirle un PIN que nunca configuró. */
+/* Muestra si el fraterno ya contestó a la próxima actividad, para que
+   al identificarse quede claro que puede entrar y cambiar su respuesta
+   en vez de sentir que tiene que "empezar de cero". */
+function identifyRsvpHint(m){
+  const next = nextActivity(ACTIVITIES);
+  if(!next) return '';
+  const status = rsvpStatusFor(next, m.id);
+  if(!status) return '';
+  const label = status==='voy' ? 'Vas ✓' : 'No vas';
+  return `<p class="hint-text">Ya respondiste a "${next.title}" (${fmtDateShort(next.date)}): <strong>${label}</strong>. Entra para cambiarlo si quieres.</p>`;
+}
 function renderIdentifyFields(){
   const nameEl = document.getElementById('idf-name');
   const container = document.getElementById('idf-fields');
@@ -872,10 +936,12 @@ function renderIdentifyFields(){
   const m = member(nameEl.value);
   if(!m) { container.innerHTML=''; return; }
   container.innerHTML = m.hasPin ? `
+    ${identifyRsvpHint(m)}
     <div class="field">
       <label for="idf-pin">PIN</label>
       <input id="idf-pin" class="input input-pin" type="tel" inputmode="numeric" maxlength="4" placeholder="••••">
     </div>` : `
+    ${identifyRsvpHint(m)}
     <p class="hint-text">Primera vez que entras: crea tu PIN de 4 dígitos y dinos tu cumpleaños (sale en el calendario del capítulo).</p>
     <div class="field">
       <label for="idf-new-pin">Crea tu PIN (4 dígitos)</label>
@@ -885,6 +951,19 @@ function renderIdentifyFields(){
       <label for="idf-birthday">Tu cumpleaños</label>
       <input id="idf-birthday" type="date" class="input">
     </div>`;
+}
+/* Si "Voy"/"No voy" abrió este modal a mitad de camino, retoma esa
+   acción justo después de identificarse en vez de dejarla perdida. */
+async function finishIdentify(id){
+  state.currentMemberId = id;
+  localStorage.setItem('zetahub_member_id', id);
+  closeModal();
+  await fetchMembers();
+  const pending = window.__pendingRsvp;
+  if(pending){
+    window.__pendingRsvp = null;
+    setRsvp(pending.activityId, pending.status, pending.excuse);
+  }
 }
 async function submitIdentify(){
   const id = document.getElementById('idf-name').value;
@@ -896,9 +975,7 @@ async function submitIdentify(){
     try{
       const ok = await sbRpc('check_pin', {p_member_id:id, p_pin:pin});
       if(ok===true){
-        state.currentMemberId = id;
-        closeModal();
-        render();
+        await finishIdentify(id);
       } else {
         errEl.textContent = 'PIN incorrecto. Intenta de nuevo.';
         errEl.style.display='block';
@@ -916,11 +993,15 @@ async function submitIdentify(){
     try{
       const ok = await sbRpc('set_member_pin_and_birthday', {p_member_id:id, p_pin:pin, p_birthday:birthday});
       if(ok===true){
-        state.currentMemberId = id;
-        closeModal();
-        await fetchMembers();
+        await finishIdentify(id);
       } else {
-        errEl.textContent = 'No se pudo guardar tu PIN (puede que ya tengas uno configurado). Intenta de nuevo.';
+        /* El servidor rechaza esto solo cuando el PIN ya existe (no es
+           realmente la "primera vez"). En vez de dejar al fraterno
+           atascado, se cambia el formulario al campo de PIN para que
+           pueda entrar con el que ya configuró. */
+        m.hasPin = true;
+        renderIdentifyFields();
+        errEl.textContent = 'Ya habías configurado tu PIN antes — escríbelo arriba para entrar. Si no lo recuerdas, pide a la directiva que lo reinicie.';
         errEl.style.display='block';
       }
     }catch(err){
@@ -1134,7 +1215,13 @@ async function submitChangeAdminPassword(){
 /* ============ Acciones ============ */
 async function setRsvp(activityId, status, excuse){
   const act = byId(ACTIVITIES, activityId);
-  if(!state.currentMemberId) return openIdentifyModal();
+  if(!state.currentMemberId){
+    /* Guarda el intento para completarlo automáticamente en cuanto el
+       fraterno termine de identificarse — así "Voy"/"No voy" no se
+       pierde silenciosamente detrás del modal de identificación. */
+    window.__pendingRsvp = {activityId, status, excuse};
+    return openIdentifyModal();
+  }
   const memberId = state.currentMemberId;
   const prev = act.rsvps[memberId];
   act.rsvps[memberId] = {status, excuse: excuse||''};
@@ -1274,7 +1361,7 @@ function openAdminActivityPicker(){
   `);
 }
 function openProduct(id){ state.selectedProduct=id; state.route='product'; render(); }
-function logout(){ state.currentMemberId=null; render(); }
+function logout(){ state.currentMemberId=null; localStorage.removeItem('zetahub_member_id'); render(); }
 async function setFineOverride(key, value){
   const [activityId, memberId] = key.split(':');
   const prev = state.fineOverrides[key];
@@ -1527,36 +1614,88 @@ function viewActivityDetail(){
   `;
 }
 
-function ticketTierField(a, idPrefix){
-  if(!a.ticketTiers || !a.ticketTiers.length) return '';
-  return `
+const TICKET_QTY_MIN = 1, TICKET_QTY_MAX = 4;
+/* Selector de taquillas como página de compra: categorías en tarjetas
+   grandes (no <select>) + contador de cantidad + total siempre visible,
+   en vez de dos listas desplegables. Se reusa en la compra de activo
+   ('tk') y de invitado ('gt'). */
+function ticketSelectorHtml(a, idPrefix){
+  const hasTiers = a.ticketTiers && a.ticketTiers.length>0;
+  const tierCards = hasTiers ? `
     <div class="field">
-      <label for="${idPrefix}-tier">Categoría</label>
-      <select id="${idPrefix}-tier" class="input" onchange="renderTicketQtyOptions('${idPrefix}')">
-        ${a.ticketTiers.map((t,i)=>`<option value="${i}">${t.label} — ${money(t.price)}</option>`).join('')}
-      </select>
-    </div>`;
+      <label>Categoría</label>
+      <input type="hidden" id="${idPrefix}-tier" value="0">
+      <div class="tier-cards" id="${idPrefix}-tier-cards">
+        ${a.ticketTiers.map((t,i)=>`
+          <button type="button" class="tier-card ${i===0?'active':''}" onclick="selectTicketTier('${idPrefix}', ${i})">
+            <span class="row" style="gap:10px;">
+              <span class="tier-card-check">${i===0?'✓':''}</span>
+              <span class="tier-card-label">${t.label}</span>
+            </span>
+            <span class="tier-card-price">${money(t.price)}</span>
+          </button>`).join('')}
+      </div>
+    </div>` : '';
+  return `
+    ${tierCards}
+    <div class="field">
+      <label>Cantidad</label>
+      <div class="qty-stepper" id="${idPrefix}-qty-stepper">
+        <button type="button" class="qty-btn minus" disabled onclick="stepTicketQty('${idPrefix}', -1)">−</button>
+        <input id="${idPrefix}-qty" class="qty-input" type="text" inputmode="numeric" value="1" readonly>
+        <button type="button" class="qty-btn plus" onclick="stepTicketQty('${idPrefix}', 1)">+</button>
+      </div>
+    </div>
+    <div class="ticket-total-row">
+      <span class="ticket-total-label">Total</span>
+      <strong class="ticket-total-amount" id="${idPrefix}-total-amount"></strong>
+    </div>
+  `;
+}
+function selectTicketTier(idPrefix, idx){
+  const hidden = document.getElementById(`${idPrefix}-tier`);
+  if(hidden) hidden.value = idx;
+  document.querySelectorAll(`#${idPrefix}-tier-cards .tier-card`).forEach((el,i)=>{
+    el.classList.toggle('active', i===idx);
+    const check = el.querySelector('.tier-card-check');
+    if(check) check.textContent = i===idx ? '✓' : '';
+  });
+  updateTicketTotal(idPrefix);
+}
+function stepTicketQty(idPrefix, delta){
+  const input = document.getElementById(`${idPrefix}-qty`);
+  if(!input) return;
+  const val = Math.min(TICKET_QTY_MAX, Math.max(TICKET_QTY_MIN, (parseInt(input.value,10)||1)+delta));
+  input.value = val;
+  updateTicketTotal(idPrefix);
 }
 function ticketUnitPrice(a, idPrefix){
   if(a.ticketTiers && a.ticketTiers.length){
-    const sel = document.getElementById(`${idPrefix}-tier`);
-    const idx = sel ? parseInt(sel.value,10) : 0;
+    const hidden = document.getElementById(`${idPrefix}-tier`);
+    const idx = hidden ? parseInt(hidden.value,10) : 0;
     return a.ticketTiers[idx].price;
   }
   return idPrefix==='tk' ? activoPrice(a.price) : a.price;
 }
 function ticketTierLabel(a, idPrefix){
   if(!a.ticketTiers || !a.ticketTiers.length) return null;
-  const sel = document.getElementById(`${idPrefix}-tier`);
-  const idx = sel ? parseInt(sel.value,10) : 0;
+  const hidden = document.getElementById(`${idPrefix}-tier`);
+  const idx = hidden ? parseInt(hidden.value,10) : 0;
   return a.ticketTiers[idx].label;
 }
-function renderTicketQtyOptions(idPrefix){
+function updateTicketTotal(idPrefix){
   const activityId = window.__ticketFormActivity;
   const a = byId(ACTIVITIES, activityId);
+  if(!a) return;
   const unit = ticketUnitPrice(a, idPrefix);
-  const qtySel = document.getElementById(`${idPrefix}-qty`);
-  if(qtySel) qtySel.innerHTML = [1,2,3,4].map(n=>`<option value="${n}">${n} taquilla${n>1?'s':''} — ${money(n*unit)}</option>`).join('');
+  const qtyInput = document.getElementById(`${idPrefix}-qty`);
+  const qty = qtyInput ? (parseInt(qtyInput.value,10)||1) : 1;
+  const totalEl = document.getElementById(`${idPrefix}-total-amount`);
+  if(totalEl) totalEl.textContent = money(unit*qty);
+  const minusBtn = document.querySelector(`#${idPrefix}-qty-stepper .minus`);
+  const plusBtn = document.querySelector(`#${idPrefix}-qty-stepper .plus`);
+  if(minusBtn) minusBtn.disabled = qty<=TICKET_QTY_MIN;
+  if(plusBtn) plusBtn.disabled = qty>=TICKET_QTY_MAX;
 }
 function startTicketPurchase(activityId){
   if(!state.currentMemberId) return openIdentifyModal();
@@ -1566,16 +1705,12 @@ function startTicketPurchase(activityId){
     <h3>Comprar taquilla — Activo del Zeta</h3>
     <p class="lede" style="margin-bottom:14px;">${a.title} — ${fmtDateShort(a.date)}. ${a.ticketTiers&&a.ticketTiers.length?'Elige tu categoría.':'Precio con 15% de descuento de activo.'}</p>
     <div class="stack">
-      ${ticketTierField(a,'tk')}
-      <div class="field">
-        <label for="tk-qty">Cantidad</label>
-        <select id="tk-qty" class="input"></select>
-      </div>
+      ${ticketSelectorHtml(a,'tk')}
     </div>
     <button class="btn btn-primary btn-block" style="margin-top:14px;" onclick="confirmTicketQty('${activityId}')">Continuar al pago</button>
     <button class="btn btn-ghost btn-block" onclick="closeModal()">Cancelar</button>
   `);
-  renderTicketQtyOptions('tk');
+  updateTicketTotal('tk');
 }
 function confirmTicketQty(activityId){
   const a = byId(ACTIVITIES, activityId);
@@ -1613,17 +1748,13 @@ function startGuestTicketPurchase(activityId){
     <div class="stack">
       <div class="field"><label for="gt-name">Nombre completo</label><input id="gt-name" class="input" placeholder="Nombre y apellido"></div>
       <div class="field"><label for="gt-contact">Teléfono o email</label><input id="gt-contact" class="input" placeholder="787-000-0000"></div>
-      ${ticketTierField(a,'gt')}
-      <div class="field">
-        <label for="gt-qty">Cantidad</label>
-        <select id="gt-qty" class="input"></select>
-      </div>
+      ${ticketSelectorHtml(a,'gt')}
       <p id="gt-error" class="error-text" style="display:none;">Escribe tu nombre y contacto.</p>
       <button class="btn btn-primary btn-block" onclick="confirmGuestTicketQty('${activityId}')">Continuar al pago</button>
       <button class="btn btn-ghost btn-block" onclick="closeModal()">Cancelar</button>
     </div>
   `);
-  renderTicketQtyOptions('gt');
+  updateTicketTotal('gt');
 }
 function confirmGuestTicketQty(activityId){
   const name = document.getElementById('gt-name').value.trim();
