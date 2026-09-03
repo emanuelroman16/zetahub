@@ -571,7 +571,7 @@ const state = {
   route:'events',
   selectedActivity:null,
   selectedProduct:null,
-  currentMemberId: localStorage.getItem('zetahub_member_id') || null,
+  currentMemberId: null,
   adminAuthed:false,
   adminPassword:null,
   adminTab:'home',
@@ -610,15 +610,6 @@ async function loadFromSupabase(){
     MEMBERS.length = 0; (mems||[]).forEach(r=>MEMBERS.push(mapMemberRow(r)));
     SHOP_ITEMS.length = 0; (shop||[]).forEach(r=>SHOP_ITEMS.push(mapShopRow(r)));
     DOCS.length = 0; (docs||[]).forEach(r=>DOCS.push(mapDocRow(r)));
-
-    /* La identidad persiste en localStorage para no pedir cumpleaños/PIN
-       en cada visita — pero si el fraterno guardado ya no existe (lo
-       borraron del roster), se limpia para no dejar la sesión en un
-       estado inválido. */
-    if(state.currentMemberId && !member(state.currentMemberId)){
-      state.currentMemberId = null;
-      localStorage.removeItem('zetahub_member_id');
-    }
 
     (rsvps||[]).forEach(r=>{
       const a = byId(ACTIVITIES, r.activity_id);
@@ -982,7 +973,6 @@ function renderIdentifyFields(){
    fraterno no tiene que repetir el click una vez identificado. */
 async function finishIdentify(id){
   state.currentMemberId = id;
-  localStorage.setItem('zetahub_member_id', id);
   closeModal();
   await fetchMembers();
   const action = window.__pendingAction;
@@ -1389,7 +1379,7 @@ function openAdminActivityPicker(){
   `);
 }
 function openProduct(id){ state.selectedProduct=id; state.route='product'; render(); }
-function logout(){ state.currentMemberId=null; localStorage.removeItem('zetahub_member_id'); render(); }
+function logout(){ state.currentMemberId=null; render(); }
 async function setFineOverride(key, value){
   const [activityId, memberId] = key.split(':');
   const prev = state.fineOverrides[key];
@@ -3078,17 +3068,23 @@ render();
 initSplash();
 loadFromSupabase();
 
-/* En iOS/Safari (y en general PWAs), volver a la pestaña o "refrescar"
-   a veces restaura la página desde el back-forward cache en vez de
-   recargar el script de cero — eso dejaría la sesión de Directiva viva
-   en memoria indefinidamente. Como esa sesión da acceso a datos
-   financieros y de fraternos, se cierra explícitamente cada vez que la
-   página vuelve así. La identificación de fraterno (en localStorage,
-   pensada para persistir) no se toca. */
+/* Ninguna sesión (Directiva ni identificación de fraterno) debe
+   sobrevivir un refresco — por seguridad, cada visita nueva empieza sin
+   nadie loggeado, así que ninguna de las dos se guarda en localStorage.
+   (Versión anterior sí guardaba la identificación de fraterno ahí;
+   se limpia cualquier rastro viejo por si quedó en el navegador.) */
+localStorage.removeItem('zetahub_member_id');
+
+/* En iOS/Safari (y en general PWAs), volver a la pestaña a veces
+   restaura la página desde el back-forward cache en vez de recargar el
+   script de cero — eso dejaría cualquier sesión viva en memoria
+   indefinidamente aunque no se guarde en localStorage. Se detecta ese
+   caso y se cierra sesión igual que si fuera una visita nueva. */
 window.addEventListener('pageshow', (e)=>{
-  if(e.persisted && state.adminAuthed){
+  if(e.persisted && (state.adminAuthed || state.currentMemberId)){
     state.adminAuthed = false;
     state.adminPassword = null;
+    state.currentMemberId = null;
     if(state.route==='admin') state.route = 'profile';
     render();
   }
