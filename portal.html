@@ -563,7 +563,7 @@ function mapShopRow(r){
   return {id:r.id, name:r.name, price:Number(r.price)||0, activoPrice: r.activo_price!=null ? Number(r.activo_price) : null, sizes:null, blurb:r.description||'', imageUrl:r.image_url||''};
 }
 function mapDocRow(r){
-  return {id:r.id, cat:r.category, name:r.title, date:null, restricted:!!r.restricted, url:r.url||''};
+  return {id:r.id, cat:r.category, name:r.title, date:null, url:r.url||''};
 }
 
 /* ============ Estado (caché local — la fuente real es Supabase) ============ */
@@ -2326,16 +2326,15 @@ function viewDocs(){
       <div class="section-head"><h2>${cat}</h2></div>
       <div class="card">
         ${docs.map(d=>{
-          const locked = d.restricted && !isDirectiva;
-          const openable = !locked && d.url;
+          const openable = !!d.url;
           return `
-          <div class="list-item" style="${locked?'opacity:.55;cursor:default;':''}${openable?'':'cursor:default;'}" ${openable?`onclick="window.open('${d.url}','_blank')"`:''}>
+          <div class="list-item" style="${openable?'':'cursor:default;'}" ${openable?`onclick="window.open('${d.url}','_blank')"`:''}>
             <div class="list-thumb">${icon('doc','width="18" height="18"')}</div>
             <div class="col" style="flex:1;">
               <span class="list-title">${d.name}</span>
-              <span class="list-sub">${d.cat}${d.restricted?' · Solo directiva':''}</span>
+              <span class="list-sub">${d.cat}</span>
             </div>
-            ${locked ? `<span class="chip chip-neutral">🔒</span>` : openable ? `<span class="chevron">↓</span>` : `<span class="hint-text" style="font-size:.72rem;">Sin link</span>`}
+            ${openable ? `<span class="chevron">↓</span>` : `<span class="hint-text" style="font-size:.72rem;">Sin link</span>`}
           </div>`;
         }).join('')}
       </div>`;
@@ -2362,7 +2361,6 @@ function openDocFormModal(docId){
         <datalist id="doc-cat-list">${catList.map(c=>`<option value="${c}">`).join('')}</datalist>
       </div>
       <div class="field"><label for="doc-url">Link del documento</label><input id="doc-url" class="input" value="${editing?editing.url:''}" placeholder="https://drive.google.com/..."></div>
-      <label class="check-row"><input type="checkbox" id="doc-restricted" ${editing&&editing.restricted?'checked':''}> Solo directiva</label>
       <p id="doc-error" class="error-text" style="display:none;">Completa título y categoría.</p>
       <button class="btn btn-primary btn-block" onclick="saveDocForm(${editing?`'${editing.id}'`:'null'})">${editing?'Guardar cambios':'Crear documento'}</button>
       ${editing ? `<button class="btn btn-danger-line btn-block" onclick="deleteDocConfirm('${editing.id}')">Eliminar documento</button>` : ''}
@@ -2374,10 +2372,9 @@ async function saveDocForm(docId){
   const title = document.getElementById('doc-title').value.trim();
   const cat = document.getElementById('doc-cat').value.trim();
   const url = document.getElementById('doc-url').value.trim();
-  const restricted = document.getElementById('doc-restricted').checked;
   const errEl = document.getElementById('doc-error');
   if(!title || !cat){ errEl.textContent='Completa título y categoría.'; errEl.style.display='block'; return; }
-  const payload = { title, category:cat, url, restricted };
+  const payload = { title, category:cat, url };
   try{
     if(docId){
       await sb(`docs?id=eq.${docId}`, {method:'PATCH', headers:{'Prefer':'return=minimal'}, body: JSON.stringify(payload)});
@@ -2996,14 +2993,14 @@ function adminTabContent(){
         <div class="list-thumb">${icon('doc','width="18" height="18"')}</div>
         <div class="col" style="flex:1;">
           <span class="list-title">${d.name}</span>
-          <span class="list-sub">${d.cat}${d.restricted?' · Solo directiva':''}${d.url?'':' · Sin link'}</span>
+          <span class="list-sub">${d.cat}${d.url?'':' · Sin link'}</span>
         </div>
         <button class="btn btn-ghost btn-sm" onclick="openDocFormModal('${d.id}')">Editar</button>
       </div>`).join('');
     return `
       <button class="btn btn-primary btn-block" onclick="openDocFormModal(null)">+ Nuevo documento</button>
       <div class="card">${rows || `<div class="empty-state">No hay documentos todavía.</div>`}</div>
-      <p class="hint-text">Los documentos marcados "Solo directiva" quedan ocultos para los fraternos normales.</p>
+      <p class="hint-text">Solo fraternos identificados pueden ver esta sección.</p>
     `;
   }
 
@@ -3080,4 +3077,20 @@ function render(){
 render();
 initSplash();
 loadFromSupabase();
+
+/* En iOS/Safari (y en general PWAs), volver a la pestaña o "refrescar"
+   a veces restaura la página desde el back-forward cache en vez de
+   recargar el script de cero — eso dejaría la sesión de Directiva viva
+   en memoria indefinidamente. Como esa sesión da acceso a datos
+   financieros y de fraternos, se cierra explícitamente cada vez que la
+   página vuelve así. La identificación de fraterno (en localStorage,
+   pensada para persistir) no se toca. */
+window.addEventListener('pageshow', (e)=>{
+  if(e.persisted && state.adminAuthed){
+    state.adminAuthed = false;
+    state.adminPassword = null;
+    if(state.route==='admin') state.route = 'profile';
+    render();
+  }
+});
 </script>
