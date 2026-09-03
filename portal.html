@@ -2301,8 +2301,25 @@ async function deleteProduct(productId){
 }
 
 function viewDocs(){
-  const cats = [...new Set(DOCS.map(d=>d.cat))];
   const isDirectiva = state.adminAuthed;
+  /* Reglamento, minutas e informes son solo para fraternos — se pide la
+     misma identificación (nombre + PIN) que ya usa el resto de la app,
+     en vez de un mecanismo nuevo. La directiva entra directo porque ya
+     pasó una verificación más fuerte (contraseña de directiva). */
+  if(!state.currentMemberId && !isDirectiva){
+    return `
+      <div class="eyebrow">Documentos</div>
+      <h1 class="page-title">Solo para fraternos</h1>
+      <p class="lede">Identifícate con tu nombre y PIN para ver el reglamento, minutas e informes del capítulo.</p>
+      <button class="btn btn-primary btn-block" onclick="openIdentifyModal()">Identificarme</button>
+      <div class="divider" style="margin:6px 0;"></div>
+      <div class="card-flat">
+        <strong style="font-size:.86rem;">¿Eres parte de la directiva?</strong>
+        <button class="btn btn-ghost btn-block" style="margin-top:10px;" onclick="openAdminLoginModal()">Acceso Directiva</button>
+      </div>
+    `;
+  }
+  const cats = [...new Set(DOCS.map(d=>d.cat))];
   const sections = cats.map(cat=>{
     const docs = DOCS.filter(d=>d.cat===cat);
     return `
