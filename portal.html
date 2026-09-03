@@ -687,7 +687,11 @@ async function fetchMembers(){
     if(state.adminAuthed && state.adminPassword){
       const rows = await sbRpc('admin_list_members', {p_admin_password: state.adminPassword});
       MEMBERS.length = 0;
-      (rows||[]).forEach(r=>MEMBERS.push(r));
+      /* admin_list_members trae el pin en claro (para poder editarlo) en
+         vez del booleano has_pin de list_members() — sin esto, el modal
+         de identificación (que sí depende de hasPin) cree que nadie
+         tiene PIN todavía mientras la directiva tenga sesión abierta. */
+      (rows||[]).forEach(r=>MEMBERS.push({...r, hasPin: !!r.pin}));
     } else {
       const rows = await sbRpc('list_members');
       MEMBERS.length = 0;
@@ -952,18 +956,18 @@ function renderIdentifyFields(){
       <input id="idf-birthday" type="date" class="input">
     </div>`;
 }
-/* Si "Voy"/"No voy" abrió este modal a mitad de camino, retoma esa
-   acción justo después de identificarse en vez de dejarla perdida. */
+/* Si "Voy"/"No voy", "Comprar como activo", etc. abrieron este modal a
+   mitad de camino (sin estar identificado todavía), retoma esa acción
+   justo después de identificarse en vez de dejarla perdida — así el
+   fraterno no tiene que repetir el click una vez identificado. */
 async function finishIdentify(id){
   state.currentMemberId = id;
   localStorage.setItem('zetahub_member_id', id);
   closeModal();
   await fetchMembers();
-  const pending = window.__pendingRsvp;
-  if(pending){
-    window.__pendingRsvp = null;
-    setRsvp(pending.activityId, pending.status, pending.excuse);
-  }
+  const action = window.__pendingAction;
+  window.__pendingAction = null;
+  if(action) action();
 }
 async function submitIdentify(){
   const id = document.getElementById('idf-name').value;
@@ -1029,8 +1033,12 @@ function openExcuseModal(activityId){
 }
 function submitExcuse(activityId){
   const text = document.getElementById('excuse-text').value.trim();
-  setRsvp(activityId, 'no_voy', text);
+  /* Cierra el modal de excusa ANTES de llamar a setRsvp: si el fraterno
+     no está identificado, setRsvp abre el modal de identificación, y un
+     closeModal() después de eso cerraría ese modal nuevo por error en
+     vez del de la excusa, dejando al fraterno sin poder identificarse. */
   closeModal();
+  setRsvp(activityId, 'no_voy', text);
 }
 
 /* ---- Pago (tienda / taquillas) ---- */
@@ -1219,7 +1227,7 @@ async function setRsvp(activityId, status, excuse){
     /* Guarda el intento para completarlo automáticamente en cuanto el
        fraterno termine de identificarse — así "Voy"/"No voy" no se
        pierde silenciosamente detrás del modal de identificación. */
-    window.__pendingRsvp = {activityId, status, excuse};
+    window.__pendingAction = () => setRsvp(activityId, status, excuse);
     return openIdentifyModal();
   }
   const memberId = state.currentMemberId;
@@ -1698,7 +1706,10 @@ function updateTicketTotal(idPrefix){
   if(plusBtn) plusBtn.disabled = qty>=TICKET_QTY_MAX;
 }
 function startTicketPurchase(activityId){
-  if(!state.currentMemberId) return openIdentifyModal();
+  if(!state.currentMemberId){
+    window.__pendingAction = () => startTicketPurchase(activityId);
+    return openIdentifyModal();
+  }
   const a = byId(ACTIVITIES, activityId);
   window.__ticketFormActivity = activityId;
   openModal(`
@@ -2054,7 +2065,10 @@ function productSizeField(p, idPrefix){
     </div>` : '';
 }
 function startProductPurchase(productId){
-  if(!state.currentMemberId) return openIdentifyModal();
+  if(!state.currentMemberId){
+    window.__pendingAction = () => startProductPurchase(productId);
+    return openIdentifyModal();
+  }
   const p = byId(SHOP_ITEMS, productId);
   const unit = activoPrice(p.price);
   openModal(`
