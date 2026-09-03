@@ -2202,7 +2202,12 @@ function openProductFormModal(productId){
       </div>
       <p class="hint-text" style="margin-top:-4px;">Deja "Precio activo" en blanco para que siga siendo automático (15% menos del precio de invitado).</p>
       <div class="field"><label for="prod-desc">Descripción</label><textarea id="prod-desc" class="input" placeholder="Detalles, tallas disponibles, etc.">${editing?editing.blurb:''}</textarea></div>
-      <div class="field"><label for="prod-img">Link de imagen (opcional)</label><input id="prod-img" class="input" placeholder="https://..." value="${editing&&editing.imageUrl?editing.imageUrl:''}" oninput="updateProductPreview()"></div>
+      <div class="field">
+        <label for="prod-img-file">Foto del producto</label>
+        <input id="prod-img-file" type="file" accept="image/*" class="input" onchange="handleProductImageUpload()">
+        <p id="prod-img-status" class="hint-text"></p>
+      </div>
+      <div class="field"><label for="prod-img">o pega un link de imagen</label><input id="prod-img" class="input" placeholder="https://..." value="${editing&&editing.imageUrl?editing.imageUrl:''}" oninput="updateProductPreview()"></div>
       <p id="prod-error" class="error-text" style="display:none;">Completa nombre y precio.</p>
       <button class="btn btn-primary btn-block" onclick="saveProductForm(${editing?`'${editing.id}'`:'null'})">${editing?'Guardar cambios':'Crear producto'}</button>
       ${editing ? `<button class="btn btn-danger-line btn-block" onclick="deleteProductConfirm('${editing.id}')">Eliminar producto</button>` : ''}
@@ -2216,6 +2221,34 @@ function updateProductPreview(){
   const url = document.getElementById('prod-img').value.trim();
   const name = document.getElementById('prod-name').value.trim();
   preview.innerHTML = url ? `<img src="${url}" alt="">` : `<span>${productFormInitials(name)}</span>`;
+}
+/* Sube la foto al mismo bucket público de Supabase Storage que ya se
+   usa para comprobantes de pago (payment-proofs), bajo su propia
+   carpeta products/ — no hay bucket dedicado para fotos de productos
+   todavía, pero este ya está público y acepta imágenes. */
+async function handleProductImageUpload(){
+  const fileInput = document.getElementById('prod-img-file');
+  const statusEl = document.getElementById('prod-img-status');
+  const file = fileInput.files[0];
+  if(!file) return;
+  statusEl.textContent = 'Subiendo...';
+  try{
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g,'') || 'jpg';
+    const path = `products/${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
+    const res = await fetch(`${SUPABASE_URL}/storage/v1/object/payment-proofs/${path}`, {
+      method:'POST',
+      headers:{ apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': file.type||'image/jpeg' },
+      body: file,
+    });
+    if(!res.ok) throw new Error(await res.text());
+    const url = `${SUPABASE_URL}/storage/v1/object/public/payment-proofs/${path}`;
+    document.getElementById('prod-img').value = url;
+    updateProductPreview();
+    statusEl.textContent = '✓ Foto subida';
+  }catch(err){
+    console.error(err);
+    statusEl.textContent = 'No se pudo subir la foto. Intenta de nuevo.';
+  }
 }
 async function saveProductForm(productId){
   const name = document.getElementById('prod-name').value.trim();
