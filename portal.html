@@ -547,6 +547,7 @@ function mapActivityRow(r){
     id:r.id, title:r.title, date:r.date, place:r.location||'Por confirmar',
     desc:r.description||'', category:r.category, isPublic:!!r.is_public,
     requiresTicket:!!r.requires_ticket, price:Number(r.price)||0,
+    activoPrice: r.activo_price!=null ? Number(r.activo_price) : null,
     ticketTiers: Array.isArray(r.ticket_tiers) ? r.ticket_tiers : [],
     proposed:!!r.proposed, rsvps:{},
   };
@@ -555,10 +556,11 @@ function applyActivityRow(target, r){
   target.title=r.title; target.date=r.date; target.place=r.location||'Por confirmar';
   target.desc=r.description||''; target.category=r.category; target.isPublic=!!r.is_public;
   target.requiresTicket=!!r.requires_ticket; target.price=Number(r.price)||0; target.proposed=!!r.proposed;
+  target.activoPrice = r.activo_price!=null ? Number(r.activo_price) : null;
   target.ticketTiers = Array.isArray(r.ticket_tiers) ? r.ticket_tiers : [];
 }
 function mapShopRow(r){
-  return {id:r.id, name:r.name, price:Number(r.price)||0, sizes:null, blurb:r.description||'', imageUrl:r.image_url||''};
+  return {id:r.id, name:r.name, price:Number(r.price)||0, activoPrice: r.activo_price!=null ? Number(r.activo_price) : null, sizes:null, blurb:r.description||'', imageUrl:r.image_url||''};
 }
 function mapDocRow(r){
   return {id:r.id, cat:r.category, name:r.title, date:null, restricted:!!r.restricted, url:r.url||''};
@@ -753,6 +755,12 @@ function money(n){return '$' + n.toFixed(2);}
    taquillas como en tienda. El invitado siempre paga precio completo. */
 const ACTIVO_DISCOUNT = 0.15;
 function activoPrice(price){ return price * (1 - ACTIVO_DISCOUNT); }
+/* La directiva puede fijar un precio de activo exacto por producto o
+   evento (columna activo_price); si lo deja en blanco (null), se sigue
+   calculando automático con el 15% de descuento de siempre. */
+function resolveActivoPrice(basePrice, explicitActivoPrice){
+  return (explicitActivoPrice!=null) ? explicitActivoPrice : activoPrice(basePrice);
+}
 /* Todo el capítulo opera en hora de Puerto Rico (UTC-4, sin horario de
    verano). Se fija timeZone explícitamente en vez de confiar en la del
    dispositivo del que mira la app — si no, un fraterno de viaje o un
@@ -1607,7 +1615,7 @@ function viewActivityDetail(){
   const ticketBlockFraterno = a.requiresTicket ? purchaseCardHtml({
     icon:'🎟️', label:'Taquilla — Activo del Zeta',
     hint: hasTiers ? 'Elige tu categoría al continuar' : 'Con tu identificación de activo · 15% de descuento',
-    price: hasTiers ? minTierPrice : activoPrice(a.price),
+    price: hasTiers ? minTierPrice : resolveActivoPrice(a.price, a.activoPrice),
     priceLabel: hasTiers ? `Desde ${money(minTierPrice)}` : undefined,
     btnClass:'btn-accent', btnLabel:'Comprar como activo', onclick:`startTicketPurchase('${a.id}')`, tintVar:CATS[a.category].color,
   }) : '';
@@ -1695,7 +1703,7 @@ function ticketUnitPrice(a, idPrefix){
     const idx = hidden ? parseInt(hidden.value,10) : 0;
     return a.ticketTiers[idx].price;
   }
-  return idPrefix==='tk' ? activoPrice(a.price) : a.price;
+  return idPrefix==='tk' ? resolveActivoPrice(a.price, a.activoPrice) : a.price;
 }
 function ticketTierLabel(a, idPrefix){
   if(!a.ticketTiers || !a.ticketTiers.length) return null;
@@ -1943,10 +1951,14 @@ function openEventFormModal(eventId){
         <label class="check-row"><input type="checkbox" id="ev-public" ${editing&&editing.isPublic?'checked':''}> Abierto al público</label>
         <label class="check-row"><input type="checkbox" id="ev-ticket" ${editing&&editing.requiresTicket?'checked':''}> Requiere taquilla</label>
       </div>
-      <div class="field"><label for="ev-price">Precio de taquilla (si aplica)</label><input id="ev-price" type="number" min="0" step="0.01" class="input" value="${editing&&editing.price?editing.price:''}"></div>
+      <div class="field-row">
+        <div class="field"><label for="ev-price">Precio de taquilla (invitado)</label><input id="ev-price" type="number" min="0" step="0.01" class="input" value="${editing&&editing.price?editing.price:''}"></div>
+        <div class="field"><label for="ev-activo-price">Precio activo</label><input id="ev-activo-price" type="number" min="0" step="0.01" class="input" placeholder="Auto −15%" value="${editing&&editing.activoPrice!=null?editing.activoPrice:''}"></div>
+      </div>
+      <p class="hint-text" style="margin-top:-4px;">Deja "Precio activo" en blanco para que siga siendo automático (15% menos). Solo aplica si no agregas precios variables abajo.</p>
       <div class="field">
         <label>Precios variables (opcional)</label>
-        <p class="hint-text" style="margin:0 0 8px;">Si agregas categorías (Damas, Militantes, Activo del Zeta, etc.), el comprador elige una al pagar y ese precio manda — no se le resta el 15% aparte. Si no agregas ninguna, se usa el precio único de arriba con el descuento automático de activo.</p>
+        <p class="hint-text" style="margin:0 0 8px;">Si agregas categorías (Damas, Militantes, Activo del Zeta, etc.), el comprador elige una al pagar y ese precio manda — no se usan los precios de arriba. Si no agregas ninguna, se usa el precio único de arriba (con el precio de activo definido o el 15% automático).</p>
         <div id="ev-tiers-list"></div>
         <button type="button" class="btn btn-ghost btn-sm" style="margin-top:4px;" onclick="addTierRow()">+ Agregar precio</button>
       </div>
@@ -1967,8 +1979,10 @@ async function saveEventForm(eventId){
   const isPublic = document.getElementById('ev-public').checked;
   const requiresTicket = document.getElementById('ev-ticket').checked;
   const price = parseFloat(document.getElementById('ev-price').value) || 0;
+  const activoPriceRaw = document.getElementById('ev-activo-price').value.trim();
   const errEl = document.getElementById('ev-error');
   if(!title || !dt || !place){ errEl.textContent='Completa título, fecha y lugar.'; errEl.style.display='block'; return; }
+  if(activoPriceRaw && (isNaN(parseFloat(activoPriceRaw)) || parseFloat(activoPriceRaw)<0)){ errEl.textContent='El precio de activo no es válido.'; errEl.style.display='block'; return; }
   /* El input datetime-local no lleva zona horaria — la directiva siempre
      escribe en hora de Puerto Rico (UTC-4, sin horario de verano), así
      que se fija ese offset explícito al construir el instante UTC real. */
@@ -1977,6 +1991,7 @@ async function saveEventForm(eventId){
   const payload = {
     title, date:isoDate, location:place, description:desc, category,
     is_public:isPublic, requires_ticket:requiresTicket, price,
+    activo_price: activoPriceRaw ? parseFloat(activoPriceRaw) : null,
     ticket_tiers: ticketTiers,
   };
   try{
@@ -2060,7 +2075,7 @@ function viewProduct(){
     <h1 class="page-title">${p.name}</h1>
     <p class="lede">${p.blurb}</p>
     ${purchaseCardHtml({
-      icon:'🛍️', label:'Comprar — Activo del Zeta', hint:'Con tu identificación de activo · 15% de descuento', price:activoPrice(p.price),
+      icon:'🛍️', label:'Comprar — Activo del Zeta', hint:'Con tu identificación de activo', price:resolveActivoPrice(p.price, p.activoPrice),
       btnClass:'btn-accent', btnLabel:'Comprar como activo', onclick:`startProductPurchase('${p.id}')`, tintVar:'--accent',
     })}
     ${purchaseCardHtml({
@@ -2082,10 +2097,10 @@ function startProductPurchase(productId){
     return openIdentifyModal();
   }
   const p = byId(SHOP_ITEMS, productId);
-  const unit = activoPrice(p.price);
+  const unit = resolveActivoPrice(p.price, p.activoPrice);
   openModal(`
     <h3>Comprar como activo del Zeta</h3>
-    <p class="lede" style="margin-bottom:14px;">${p.name} — ${money(unit)} (15% de descuento de activo)</p>
+    <p class="lede" style="margin-bottom:14px;">${p.name} — ${money(unit)} (precio de activo)</p>
     <div class="stack">
       ${productSizeField(p,'prod')}
       <div class="field"><label for="prod-qty">Cantidad</label><select id="prod-qty" class="input">${[1,2,3].map(n=>`<option value="${n}">${n} — ${money(n*unit)}</option>`).join('')}</select></div>
@@ -2096,7 +2111,7 @@ function startProductPurchase(productId){
 }
 function confirmProductQty(productId){
   const p = byId(SHOP_ITEMS, productId);
-  const unit = activoPrice(p.price);
+  const unit = resolveActivoPrice(p.price, p.activoPrice);
   const size = p.sizes ? document.getElementById('prod-size').value : null;
   const qty = parseInt(document.getElementById('prod-qty').value, 10);
   const memberId = state.currentMemberId;
@@ -2167,6 +2182,7 @@ function confirmGuestProductQty(productId){
 /* ---- CMS de productos (directiva) ---- */
 function applyShopRow(target, r){
   target.name=r.name; target.price=Number(r.price)||0; target.blurb=r.description||''; target.imageUrl=r.image_url||'';
+  target.activoPrice = r.activo_price!=null ? Number(r.activo_price) : null;
 }
 function productFormInitials(name){
   return (name||'').trim().split(' ').filter(Boolean).map(w=>w[0]).slice(0,2).join('').toUpperCase() || '🛍️';
@@ -2180,7 +2196,11 @@ function openProductFormModal(productId){
         ${editing && editing.imageUrl ? `<img src="${editing.imageUrl}" alt="">` : `<span>${productFormInitials(editing?editing.name:'')}</span>`}
       </div>
       <div class="field"><label for="prod-name">Nombre</label><input id="prod-name" class="input" placeholder="Ej. Camisa oficial" value="${editing?editing.name:''}" oninput="updateProductPreview()"></div>
-      <div class="field"><label for="prod-price">Precio</label><input id="prod-price" type="number" min="0" step="0.01" class="input" placeholder="0.00" value="${editing?editing.price:''}"></div>
+      <div class="field-row">
+        <div class="field"><label for="prod-price">Precio invitado</label><input id="prod-price" type="number" min="0" step="0.01" class="input" placeholder="0.00" value="${editing?editing.price:''}"></div>
+        <div class="field"><label for="prod-activo-price">Precio activo</label><input id="prod-activo-price" type="number" min="0" step="0.01" class="input" placeholder="Auto −15%" value="${editing&&editing.activoPrice!=null?editing.activoPrice:''}"></div>
+      </div>
+      <p class="hint-text" style="margin-top:-4px;">Deja "Precio activo" en blanco para que siga siendo automático (15% menos del precio de invitado).</p>
       <div class="field"><label for="prod-desc">Descripción</label><textarea id="prod-desc" class="input" placeholder="Detalles, tallas disponibles, etc.">${editing?editing.blurb:''}</textarea></div>
       <div class="field"><label for="prod-img">Link de imagen (opcional)</label><input id="prod-img" class="input" placeholder="https://..." value="${editing&&editing.imageUrl?editing.imageUrl:''}" oninput="updateProductPreview()"></div>
       <p id="prod-error" class="error-text" style="display:none;">Completa nombre y precio.</p>
@@ -2200,11 +2220,13 @@ function updateProductPreview(){
 async function saveProductForm(productId){
   const name = document.getElementById('prod-name').value.trim();
   const price = parseFloat(document.getElementById('prod-price').value);
+  const activoPriceRaw = document.getElementById('prod-activo-price').value.trim();
   const description = document.getElementById('prod-desc').value.trim();
   const image_url = document.getElementById('prod-img').value.trim();
   const errEl = document.getElementById('prod-error');
   if(!name || isNaN(price) || price<0){ errEl.textContent='Completa nombre y precio.'; errEl.style.display='block'; return; }
-  const payload = { name, price, description, image_url };
+  if(activoPriceRaw && (isNaN(parseFloat(activoPriceRaw)) || parseFloat(activoPriceRaw)<0)){ errEl.textContent='El precio de activo no es válido.'; errEl.style.display='block'; return; }
+  const payload = { name, price, activo_price: activoPriceRaw ? parseFloat(activoPriceRaw) : null, description, image_url };
   try{
     if(productId){
       const rows = await sb(`shop_items?id=eq.${productId}`, {method:'PATCH', headers:{'Prefer':'return=representation'}, body: JSON.stringify(payload)});
