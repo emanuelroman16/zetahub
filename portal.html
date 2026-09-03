@@ -250,6 +250,18 @@
   .product-hero-img{width:100%;aspect-ratio:1.3;border-radius:var(--radius-lg);background:var(--surface-3);overflow:hidden;display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:2rem;color:var(--ink-faint);flex-shrink:0;}
   .product-hero-img img{width:100%;height:100%;object-fit:cover;}
 
+  /* ---------- Formulario de producto (admin): vista previa + precios en fila ---------- */
+  .prod-form-preview{
+    width:92px;height:92px;border-radius:var(--radius-lg);
+    background:var(--surface-3);border:1px solid var(--border);
+    display:flex;align-items:center;justify-content:center;overflow:hidden;
+    margin:0 auto 6px;
+    font-family:var(--font-display);font-weight:700;font-size:1.4rem;color:var(--ink-faint);
+  }
+  .prod-form-preview img{width:100%;height:100%;object-fit:cover;}
+  .field-row{display:flex;gap:10px;}
+  .field-row .field{flex:1;min-width:0;}
+
   /* ---------- Navegación principal: cápsula pill ---------- */
   .nav-pill{
     display:flex;gap:2px;
@@ -2156,21 +2168,34 @@ function confirmGuestProductQty(productId){
 function applyShopRow(target, r){
   target.name=r.name; target.price=Number(r.price)||0; target.blurb=r.description||''; target.imageUrl=r.image_url||'';
 }
+function productFormInitials(name){
+  return (name||'').trim().split(' ').filter(Boolean).map(w=>w[0]).slice(0,2).join('').toUpperCase() || '🛍️';
+}
 function openProductFormModal(productId){
   const editing = productId ? byId(SHOP_ITEMS, productId) : null;
   openModal(`
     <h3>${editing ? 'Editar producto' : 'Nuevo producto'}</h3>
     <div class="stack">
-      <div class="field"><label for="prod-name">Nombre</label><input id="prod-name" class="input" value="${editing?editing.name:''}"></div>
-      <div class="field"><label for="prod-price">Precio</label><input id="prod-price" type="number" min="0" step="0.01" class="input" value="${editing?editing.price:''}"></div>
-      <div class="field"><label for="prod-desc">Descripción</label><textarea id="prod-desc" class="input">${editing?editing.blurb:''}</textarea></div>
-      <div class="field"><label for="prod-img">Link de imagen (opcional)</label><input id="prod-img" class="input" value="${editing&&editing.imageUrl?editing.imageUrl:''}" placeholder="https://..."></div>
+      <div class="prod-form-preview" id="prod-preview">
+        ${editing && editing.imageUrl ? `<img src="${editing.imageUrl}" alt="">` : `<span>${productFormInitials(editing?editing.name:'')}</span>`}
+      </div>
+      <div class="field"><label for="prod-name">Nombre</label><input id="prod-name" class="input" placeholder="Ej. Camisa oficial" value="${editing?editing.name:''}" oninput="updateProductPreview()"></div>
+      <div class="field"><label for="prod-price">Precio</label><input id="prod-price" type="number" min="0" step="0.01" class="input" placeholder="0.00" value="${editing?editing.price:''}"></div>
+      <div class="field"><label for="prod-desc">Descripción</label><textarea id="prod-desc" class="input" placeholder="Detalles, tallas disponibles, etc.">${editing?editing.blurb:''}</textarea></div>
+      <div class="field"><label for="prod-img">Link de imagen (opcional)</label><input id="prod-img" class="input" placeholder="https://..." value="${editing&&editing.imageUrl?editing.imageUrl:''}" oninput="updateProductPreview()"></div>
       <p id="prod-error" class="error-text" style="display:none;">Completa nombre y precio.</p>
       <button class="btn btn-primary btn-block" onclick="saveProductForm(${editing?`'${editing.id}'`:'null'})">${editing?'Guardar cambios':'Crear producto'}</button>
       ${editing ? `<button class="btn btn-danger-line btn-block" onclick="deleteProductConfirm('${editing.id}')">Eliminar producto</button>` : ''}
       <button class="btn btn-ghost btn-block" onclick="closeModal()">Cancelar</button>
     </div>
   `);
+}
+function updateProductPreview(){
+  const preview = document.getElementById('prod-preview');
+  if(!preview) return;
+  const url = document.getElementById('prod-img').value.trim();
+  const name = document.getElementById('prod-name').value.trim();
+  preview.innerHTML = url ? `<img src="${url}" alt="">` : `<span>${productFormInitials(name)}</span>`;
 }
 async function saveProductForm(productId){
   const name = document.getElementById('prod-name').value.trim();
