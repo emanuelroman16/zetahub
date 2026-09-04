@@ -10,7 +10,7 @@
     --surface:#131519;
     --surface-2:#1a1d22;
     --ink:#f5f6f8;
-    --ink-soft:#a6acb6;
+    --ink-soft:#c7cbd3;
     --ink-faint:#6c7280;
     --border:#24272e;
     --chrome:#8ab4ff;
@@ -32,6 +32,7 @@
     -webkit-font-smoothing:antialiased;
   }
   a{color:inherit;}
+  svg{display:block;}
   .wrap{max-width:680px;margin:0 auto;padding:0 20px calc(56px + env(safe-area-inset-bottom));}
 
   .hero{
@@ -65,7 +66,7 @@
   .eyebrow{font-size:.72rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--chrome);}
   h1{font-family:var(--font-display);font-weight:800;font-size:2.2rem;letter-spacing:-.02em;margin:10px 0 6px;text-wrap:balance;}
   .motto{font-style:italic;color:var(--ink-soft);font-size:1.05rem;margin:0 0 14px;}
-  .tagline{color:var(--ink-soft);font-size:1rem;line-height:1.55;max-width:480px;margin:0 auto 28px;}
+  .tagline{color:var(--ink-soft);font-size:1.05rem;line-height:1.6;max-width:480px;margin:0 auto 28px;font-weight:500;}
   .cta-row{display:flex;flex-direction:column;gap:10px;align-items:center;}
   .cta{
     display:inline-flex;align-items:center;justify-content:center;gap:8px;width:100%;max-width:340px;
@@ -79,23 +80,47 @@
 
   section{padding:44px 0;}
   section.tight{padding:24px 0;}
-  .section-eyebrow{font-size:.7rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint);text-align:center;margin-bottom:8px;}
-  h2{font-family:var(--font-display);font-weight:700;font-size:1.5rem;text-align:center;margin:0 0 16px;text-wrap:balance;}
-  .lede{color:var(--ink-soft);font-size:.95rem;line-height:1.65;text-align:center;max-width:560px;margin:0 auto;}
+  .section-eyebrow{font-size:.7rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--chrome);text-align:center;margin-bottom:8px;}
+  h2{font-family:var(--font-display);font-weight:700;font-size:1.65rem;text-align:center;margin:0 0 16px;text-wrap:balance;}
+  .lede{color:var(--ink-soft);font-size:1.02rem;line-height:1.65;text-align:center;max-width:560px;margin:0 auto;font-weight:500;}
   .lede + .lede{margin-top:14px;}
+
+  /* ---------- Badge de sección (ícono grande centrado) ---------- */
+  .section-badge{
+    width:56px;height:56px;border-radius:50%;margin:0 auto 16px;
+    background:var(--accent-soft);color:var(--chrome);
+    display:flex;align-items:center;justify-content:center;
+  }
+  .section-badge svg{width:28px;height:28px;}
+
+  /* ---------- Para quién es esto ---------- */
+  .audience-card{
+    background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);
+    padding:28px 24px;margin-top:22px;text-align:center;
+  }
+  .audience-card .lede{margin-bottom:18px;}
+  .audience-facts{display:flex;flex-direction:column;gap:10px;max-width:420px;margin:0 auto;text-align:left;}
+  .audience-fact{display:flex;gap:12px;align-items:flex-start;}
+  .audience-fact svg{flex-shrink:0;width:20px;height:20px;color:var(--chrome);margin-top:2px;}
+  .audience-fact p{margin:0;color:var(--ink);font-size:.95rem;font-weight:600;line-height:1.5;}
 
   .pillars{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:28px;}
   @media (max-width:560px){.pillars{grid-template-columns:1fr;}}
-  .pillar{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;text-align:center;}
-  .pillar-icon{font-size:1.8rem;margin-bottom:10px;}
-  .pillar h3{font-family:var(--font-display);font-size:1rem;margin:0 0 6px;}
-  .pillar p{color:var(--ink-soft);font-size:.85rem;line-height:1.5;margin:0;}
+  .pillar{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:22px 20px;text-align:center;}
+  .pillar-icon{
+    width:46px;height:46px;border-radius:50%;margin:0 auto 12px;
+    background:var(--accent-soft);color:var(--chrome);
+    display:flex;align-items:center;justify-content:center;
+  }
+  .pillar-icon svg{width:22px;height:22px;}
+  .pillar h3{font-family:var(--font-display);font-size:1.05rem;margin:0 0 6px;}
+  .pillar p{color:var(--ink-soft);font-size:.92rem;line-height:1.55;margin:0;font-weight:500;}
 
   .myth-card{
     background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);
-    padding:24px;margin-top:24px;
+    padding:26px 24px;margin-top:24px;
   }
-  .myth-row{display:flex;gap:14px;align-items:flex-start;margin-bottom:16px;}
+  .myth-row{display:flex;gap:14px;align-items:flex-start;margin-bottom:18px;}
   .myth-row:last-child{margin-bottom:0;}
   .myth-tag{
     flex-shrink:0;font-family:var(--font-mono);font-size:.65rem;font-weight:700;
@@ -103,23 +128,38 @@
   }
   .myth-tag.no{background:rgba(248,113,113,.14);color:#f87171;}
   .myth-tag.si{background:rgba(61,220,154,.14);color:#3ddc9a;}
-  .myth-row p{margin:0;color:var(--ink-soft);font-size:.88rem;line-height:1.55;}
-  .myth-row strong{color:var(--ink);}
+  .myth-row p{margin:0;color:var(--ink-soft);font-size:.95rem;line-height:1.6;font-weight:500;}
+  .myth-row strong{color:var(--ink);font-weight:800;}
 
   .steps{display:flex;flex-direction:column;gap:12px;margin-top:24px;}
-  .step{display:flex;gap:14px;align-items:flex-start;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:16px;}
+  .step{display:flex;gap:14px;align-items:flex-start;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:18px 16px;}
   .step-num{
-    flex-shrink:0;width:30px;height:30px;border-radius:50%;background:var(--accent-soft);color:var(--chrome);
-    display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:800;font-size:.9rem;
+    flex-shrink:0;width:32px;height:32px;border-radius:50%;background:var(--accent-soft);color:var(--chrome);
+    display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:800;font-size:.95rem;
   }
-  .step p{margin:0;color:var(--ink-soft);font-size:.85rem;line-height:1.5;}
-  .step strong{color:var(--ink);display:block;font-size:.92rem;margin-bottom:2px;}
+  .step p{margin:0;color:var(--ink-soft);font-size:.92rem;line-height:1.55;font-weight:500;}
+  .step strong{color:var(--ink);display:block;font-size:.98rem;margin-bottom:3px;}
 
-  .gallery{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:24px;}
-  .gallery-slot{
-    aspect-ratio:1;border-radius:var(--radius-md);background:var(--surface-2);border:1px dashed var(--border);
-    display:flex;align-items:center;justify-content:center;color:var(--ink-faint);font-size:1.4rem;
+  /* ---------- Carrusel de fotos ("pasando" en bucle) ---------- */
+  .photo-marquee{
+    overflow:hidden;margin:26px 0 0;
+    -webkit-mask-image:linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+    mask-image:linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
   }
+  .photo-track{
+    display:flex;gap:12px;width:max-content;
+    animation:photo-scroll 32s linear infinite;
+  }
+  .photo-track:hover{animation-play-state:paused;}
+  .photo-card{
+    width:150px;aspect-ratio:3/4;flex-shrink:0;border-radius:var(--radius-md);
+    background:linear-gradient(160deg, var(--surface-2) 0%, var(--surface) 100%);
+    border:1px solid var(--border);
+    display:flex;align-items:center;justify-content:center;color:var(--ink-faint);
+  }
+  .photo-card svg{width:26px;height:26px;}
+  @keyframes photo-scroll{ from{transform:translateX(0);} to{transform:translateX(-50%);} }
+  @media (prefers-reduced-motion: reduce){ .photo-track{animation:none;} }
 
   form.signup{
     background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);
@@ -127,16 +167,22 @@
   }
   .field label{display:block;font-size:.76rem;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;}
   .field input, .field textarea{
-    width:100%;font-family:var(--font-body);font-size:.92rem;
+    width:100%;font-family:var(--font-body);font-size:.95rem;
     padding:12px 13px;border-radius:10px;border:1.5px solid var(--border);
     background:var(--surface-2);color:var(--ink);
   }
   .field textarea{resize:vertical;min-height:70px;}
   .field input:focus, .field textarea:focus{outline:none;border-color:var(--accent);}
-  .form-hint{color:var(--ink-faint);font-size:.76rem;margin:0;}
-  .form-error{color:#f87171;font-size:.8rem;font-weight:600;display:none;}
-  .form-success{display:none;text-align:center;padding:12px 4px;}
-  .form-success .big{font-size:2rem;margin-bottom:8px;}
+  .form-hint{color:var(--ink-faint);font-size:.78rem;margin:0;}
+  .form-error{color:#f87171;font-size:.82rem;font-weight:700;display:none;}
+  .form-success{display:none;text-align:center;padding:14px 4px;}
+  .form-success .check-badge{
+    width:48px;height:48px;border-radius:50%;margin:0 auto 10px;
+    background:rgba(61,220,154,.14);color:#3ddc9a;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .form-success .check-badge svg{width:24px;height:24px;}
+  .form-success p{margin:0;font-weight:700;color:var(--ink);}
 
   #events-list{display:flex;flex-direction:column;gap:10px;margin-top:24px;}
   .event-row{
@@ -147,9 +193,9 @@
     font-family:var(--font-mono);font-size:.68rem;font-weight:700;color:var(--chrome);
     text-transform:uppercase;letter-spacing:.05em;text-align:center;flex-shrink:0;width:52px;line-height:1.3;
   }
-  .event-title{font-weight:700;font-size:.9rem;}
-  .event-meta{color:var(--ink-soft);font-size:.78rem;margin-top:2px;}
-  .empty{color:var(--ink-faint);text-align:center;font-size:.85rem;padding:20px;}
+  .event-title{font-weight:700;font-size:.95rem;}
+  .event-meta{color:var(--ink-faint);font-size:.8rem;margin-top:2px;}
+  .empty{color:var(--ink-faint);text-align:center;font-size:.88rem;padding:20px;}
 
   .final-cta{text-align:center;padding:48px 0 8px;}
   footer{text-align:center;color:var(--ink-faint);font-size:.75rem;padding:24px 0;line-height:1.6;}
@@ -160,7 +206,7 @@
   <div class="eyebrow">Capítulo Zeta · Área de Arecibo</div>
   <h1>Phi Sigma Alpha</h1>
   <p class="motto">"Caballeros Ante Todo"</p>
-  <p class="tagline">Somos el área de Arecibo de Phi Sigma Alpha, fraternidad nacional fundada en 1928 en la UPR Río Piedras. Una organización estudiantil sin fines de lucro basada en hermandad, servicio y crecimiento personal.</p>
+  <p class="tagline">Fraternidad nacional universitaria fundada en 1928. Organización estudiantil sin fines de lucro — hermandad, servicio y crecimiento personal.</p>
   <div class="cta-row">
     <a class="cta" href="#unete">Quiero conocerlos — sin compromiso</a>
     <a class="cta cta-ghost" href="portal.html">Acceder al Portal / Calendario</a>
@@ -169,31 +215,71 @@
 
 <div class="wrap">
   <section>
+    <div class="section-badge">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4 2 9l10 5 10-5-10-5Z"/><path d="M6 11.5v4c0 1.4 2.7 3 6 3s6-1.6 6-3v-4"/><path d="M22 9v6"/></svg>
+    </div>
+    <div class="section-eyebrow">¿Para quién es esto?</div>
+    <h2>Una hermandad para hombres universitarios</h2>
+    <div class="audience-card">
+      <p class="lede">Somos una asociación estudiantil para jóvenes varones cursando estudios en el área de Arecibo. Te acompañamos durante el proceso universitario y seguimos siendo tu red de apoyo al entrar a la vida adulta y profesional.</p>
+      <div class="audience-facts">
+        <div class="audience-fact">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          <p>Hermanos que te apoyan mientras estudias, no solo cuando sales de fiesta.</p>
+        </div>
+        <div class="audience-fact">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          <p>Desarrollo de liderazgo que te sirve mucho después de graduarte.</p>
+        </div>
+        <div class="audience-fact">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          <p>Una red de contactos y amistades que dura toda la vida adulta.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
     <div class="section-eyebrow">Qué hacemos</div>
     <h2>Tres pilares del capítulo</h2>
     <div class="pillars">
       <div class="pillar">
-        <div class="pillar-icon">🤝</div>
+        <div class="pillar-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><circle cx="16.5" cy="9.5" r="2.6"/><path d="M3.2 20c0-3.3 2.6-6 6-6 1 0 1.9.25 2.7.7"/><path d="M13.3 20c.3-2.6 2.3-4.6 5-4.6 2.3 0 4.2 1.6 4.7 3.8"/></svg>
+        </div>
         <h3>Hermandad</h3>
-        <p>Una red de fraternos comprometidos con crecer juntos, dentro y fuera de la universidad.</p>
+        <p>Hermanos comprometidos con crecer juntos, dentro y fuera de la universidad.</p>
       </div>
       <div class="pillar">
-        <div class="pillar-icon">🌎</div>
+        <div class="pillar-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20.5s-7.5-4.6-9.7-9.2C1 8.2 2.4 5 5.6 4.3c2-.4 3.7.5 4.7 2 .3.4.8.4 1.1 0 1-1.5 2.7-2.4 4.7-2 3.2.7 4.6 3.9 3.3 7-2.2 4.6-9.4 9.2-9.4 9.2Z"/></svg>
+        </div>
         <h3>Servicio comunitario</h3>
-        <p>Actividades cívicas y de servicio para devolverle a la comunidad del área de Arecibo.</p>
+        <p>Actividades cívicas para devolverle a la comunidad del área de Arecibo.</p>
       </div>
       <div class="pillar">
-        <div class="pillar-icon">🎉</div>
+        <div class="pillar-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18"/><path d="M8 3v4M16 3v4"/><path d="M12 13.7l.9 1.9 2.1.3-1.5 1.5.3 2.1-1.8-1-1.8 1 .3-2.1-1.5-1.5 2.1-.3.9-1.9Z"/></svg>
+        </div>
         <h3>Vida social</h3>
-        <p>Eventos, socials y actividades abiertas donde conocer al capítulo de cerca.</p>
+        <p>Eventos y actividades abiertas para conocer al capítulo de cerca.</p>
       </div>
+    </div>
+  </section>
+
+  <section class="tight">
+    <div class="section-eyebrow">Así se ve</div>
+    <h2>Nuestra hermandad en fotos</h2>
+    <p class="lede">Fotos reales de nuestras actividades, próximamente — la mejor forma de conocernos sigue siendo en persona.</p>
+    <div class="photo-marquee">
+      <div class="photo-track" id="photo-track"></div>
     </div>
   </section>
 
   <section>
     <div class="section-eyebrow">Lo que mucha gente no sabe</div>
     <h2>¿Qué es realmente una fraternidad?</h2>
-    <p class="lede">Sabemos que hay una percepción negativa de las fraternidades. La realidad, para nosotros, es otra: es un espacio para crecer como persona, como hombre, y encontrar hermanos con quien contar de verdad.</p>
+    <p class="lede">Sabemos que hay una percepción negativa. La realidad, para nosotros, es otra: un espacio para crecer como hombre y encontrar hermanos con quien contar de verdad.</p>
     <div class="myth-card">
       <div class="myth-row">
         <span class="myth-tag no">Percepción</span>
@@ -201,15 +287,11 @@
       </div>
       <div class="myth-row">
         <span class="myth-tag si">Realidad</span>
-        <p><strong>Te ayuda a crecer.</strong> Aprendes a ser mejor persona, a asumir responsabilidad y a manejarte en el mundo adulto — con gente que te acompaña en ese proceso, no que te lo hace más difícil.</p>
+        <p><strong>Te ayuda a crecer.</strong> Aprendes a ser mejor persona y a manejarte en el mundo adulto — acompañado, no presionado.</p>
       </div>
       <div class="myth-row">
         <span class="myth-tag si">Realidad</span>
-        <p><strong>Ganas hermanos, no solo amigos.</strong> Gente en quien confiar y a quien buscar cuando de verdad lo necesites — no solo para los buenos tiempos.</p>
-      </div>
-      <div class="myth-row">
-        <span class="myth-tag si">Realidad</span>
-        <p><strong>Todos estamos en las mismas.</strong> Nadie llega sabiéndolo todo — se aprende y se crece en comunidad, un paso a la vez.</p>
+        <p><strong>Ganas hermanos, no solo amigos.</strong> Gente en quien confiar y a quien buscar cuando de verdad lo necesites.</p>
       </div>
     </div>
   </section>
@@ -220,20 +302,20 @@
     <div class="steps">
       <div class="step">
         <div class="step-num">1</div>
-        <p><strong>Regístrate abajo.</strong> Nos dejas tu nombre y contacto — no es un compromiso de nada, es solo para poder invitarte.</p>
+        <p><strong>Regístrate abajo.</strong> Nos dejas tu nombre y contacto — no es ningún compromiso, es solo para poder invitarte.</p>
       </div>
       <div class="step">
         <div class="step-num">2</div>
-        <p><strong>Te invitamos a un evento abierto.</strong> Un smoker u otra actividad donde puedes conocer al capítulo, ver el ambiente y hacer preguntas sin presión.</p>
+        <p><strong>Te invitamos a un evento abierto.</strong> Un smoker u otra actividad para conocer al capítulo sin presión.</p>
       </div>
       <div class="step">
         <div class="step-num">3</div>
-        <p><strong>Decides tú.</strong> Si te gusta lo que ves y quieres seguir el proceso para unirte, ahí te explicamos los próximos pasos y requisitos con calma.</p>
+        <p><strong>Decides tú.</strong> Si te gusta lo que ves, te explicamos los próximos pasos y requisitos con calma.</p>
       </div>
     </div>
 
     <form class="signup" id="signup-form">
-      <h3 style="font-family:var(--font-display);margin:0;font-size:1.1rem;">Quiero que me inviten</h3>
+      <h3 style="font-family:var(--font-display);margin:0;font-size:1.15rem;">Quiero que me inviten</h3>
       <div class="field">
         <label for="sf-name">Nombre completo</label>
         <input id="sf-name" placeholder="Nombre y apellido" required>
@@ -250,21 +332,10 @@
       <button type="submit" class="cta" style="max-width:none;">Enviar — sin compromiso</button>
       <p class="form-hint">Solo lo usamos para invitarte a actividades. No te unes a nada todavía.</p>
       <div class="form-success" id="sf-success">
-        <div class="big">✅</div>
-        <p style="margin:0;font-weight:700;">¡Listo! Te vamos a contactar pronto.</p>
+        <div class="check-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M8 12.5l2.5 2.5L16 9.5"/></svg></div>
+        <p>¡Listo! Te vamos a contactar pronto.</p>
       </div>
     </form>
-  </section>
-
-  <section class="tight">
-    <div class="section-eyebrow">Así se ve</div>
-    <h2>Nuestra hermandad en fotos</h2>
-    <p class="lede">Pronto vas a ver aquí fotos reales de nuestras actividades — mientras tanto, la mejor forma de conocernos es en persona. Regístrate arriba.</p>
-    <div class="gallery">
-      <div class="gallery-slot">📷</div>
-      <div class="gallery-slot">📷</div>
-      <div class="gallery-slot">📷</div>
-    </div>
   </section>
 
   <section>
@@ -287,6 +358,15 @@
 const SUPABASE_URL = 'https://jxspulzybmcpkwklrrfs.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_Ee1xJc7qOXaTdijNlw6Oxg_za0-J67g';
 const HIDDEN_CATS = ['directiva','cen'];
+
+const CAMERA_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z"/><circle cx="12" cy="13" r="3.3"/></svg>';
+function buildPhotoMarquee(){
+  const track = document.getElementById('photo-track');
+  const slots = Array.from({length: 8}, () => `<div class="photo-card">${CAMERA_ICON}</div>`).join('');
+  // se duplica el set para que el bucle de -50% quede perfectamente continuo
+  track.innerHTML = slots + slots;
+}
+buildPhotoMarquee();
 
 function fmtDateShort(iso){
   const d = new Date(iso);
