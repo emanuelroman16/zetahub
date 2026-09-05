@@ -156,8 +156,10 @@
     background:linear-gradient(160deg, var(--surface-2) 0%, var(--surface) 100%);
     border:1px solid var(--border);
     display:flex;align-items:center;justify-content:center;color:var(--ink-faint);
+    overflow:hidden;
   }
   .photo-card svg{width:26px;height:26px;}
+  .photo-card img{width:100%;height:100%;object-fit:cover;}
   @keyframes photo-scroll{ from{transform:translateX(0);} to{transform:translateX(-50%);} }
   @media (prefers-reduced-motion: reduce){ .photo-track{animation:none;} }
 
@@ -270,7 +272,7 @@
   <section class="tight">
     <div class="section-eyebrow">Así se ve</div>
     <h2>Nuestra hermandad en fotos</h2>
-    <p class="lede">Fotos reales de nuestras actividades, próximamente — la mejor forma de conocernos sigue siendo en persona.</p>
+    <p class="lede" id="gallery-lede">Fotos reales de nuestras actividades, próximamente — la mejor forma de conocernos sigue siendo en persona.</p>
     <div class="photo-marquee">
       <div class="photo-track" id="photo-track"></div>
     </div>
@@ -360,10 +362,30 @@ const SUPABASE_ANON_KEY = 'sb_publishable_Ee1xJc7qOXaTdijNlw6Oxg_za0-J67g';
 const HIDDEN_CATS = ['directiva','cen'];
 
 const CAMERA_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z"/><circle cx="12" cy="13" r="3.3"/></svg>';
-function buildPhotoMarquee(){
+/* Las fotos reales se suben desde Directiva > Fotos del sitio, al mismo
+   bucket público (payment-proofs/gallery/) que ya usan las fotos de
+   producto. Si todavía no hay ninguna, se muestran marcadores honestos
+   (ícono de cámara) en vez de inventar fotos. */
+async function buildPhotoMarquee(){
   const track = document.getElementById('photo-track');
+  try{
+    const res = await fetch(`${SUPABASE_URL}/storage/v1/object/list/payment-proofs`, {
+      method:'POST',
+      headers:{ apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type':'application/json' },
+      body: JSON.stringify({ prefix:'gallery/', limit:100, sortBy:{column:'created_at', order:'desc'} }),
+    });
+    if(!res.ok) throw new Error(`Supabase ${res.status}`);
+    const rows = (await res.json()).filter(r => r.name);
+    if(rows.length){
+      const cards = rows.map(r => `<div class="photo-card"><img src="${SUPABASE_URL}/storage/v1/object/public/payment-proofs/gallery/${r.name}" alt="Foto de una actividad del capítulo" loading="lazy"></div>`).join('');
+      track.innerHTML = cards + cards; // duplicado para que el bucle de -50% quede continuo
+      document.getElementById('gallery-lede').textContent = 'Así vivimos la hermandad — algunas fotos de nuestras actividades.';
+      return;
+    }
+  }catch(err){
+    console.error('Error cargando fotos de la galería:', err);
+  }
   const slots = Array.from({length: 8}, () => `<div class="photo-card">${CAMERA_ICON}</div>`).join('');
-  // se duplica el set para que el bucle de -50% quede perfectamente continuo
   track.innerHTML = slots + slots;
 }
 buildPhotoMarquee();

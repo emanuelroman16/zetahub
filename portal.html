@@ -262,6 +262,11 @@
   .field-row{display:flex;gap:10px;}
   .field-row .field{flex:1;min-width:0;}
 
+  /* ---------- Galería de fotos del sitio (admin) ---------- */
+  .gallery-admin-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:4px;}
+  .gallery-admin-item{display:flex;flex-direction:column;gap:6px;}
+  .gallery-admin-item img{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface-2);}
+
   /* ---------- Navegación principal: cápsula pill ---------- */
   .nav-pill{
     display:flex;gap:2px;
@@ -584,6 +589,7 @@ const state = {
   publicTickets:[],
   prospects:[],
   transactions:[],
+  galleryPhotos:[], // fotos del carrusel de la página pública (bucket payment-proofs, carpeta gallery/)
   fineOverrides:{}, // key `${activityId}:${memberId}` -> 'pagada' | 'exonerada'
   loading:true,
   loadError:null,
@@ -1181,6 +1187,7 @@ async function submitAdminLogin(){
       fetchMembers();
       fetchProspects();
       fetchTransactions();
+      fetchGalleryPhotos();
     } else {
       errEl.textContent = 'Contraseña incorrecta.';
       errEl.style.display='block';
@@ -1197,6 +1204,7 @@ function adminLogout(){
   state.adminTab = 'home';
   state.prospects = [];
   state.transactions = [];
+  state.galleryPhotos = [];
   goRoute('profile');
   fetchDocs();
   fetchMembers();
@@ -2240,6 +2248,75 @@ async function handleProductImageUpload(){
     statusEl.textContent = 'No se pudo subir la foto. Intenta de nuevo.';
   }
 }
+
+/* ---- Fotos del carrusel de la página pública (bucket payment-proofs,
+   carpeta gallery/) — la página index.html las lista y las muestra sin
+   necesitar contraseña, así que basta con subir/borrar aquí. */
+async function fetchGalleryPhotos(){
+  try{
+    const res = await fetch(`${SUPABASE_URL}/storage/v1/object/list/payment-proofs`, {
+      method:'POST',
+      headers:{ apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type':'application/json' },
+      body: JSON.stringify({ prefix:'gallery/', limit:100, sortBy:{column:'created_at', order:'desc'} }),
+    });
+    if(!res.ok) throw new Error(await res.text());
+    const rows = (await res.json()).filter(r=>r.name);
+    state.galleryPhotos = rows.map(r=>({
+      name:r.name,
+      url:`${SUPABASE_URL}/storage/v1/object/public/payment-proofs/gallery/${r.name}`,
+    }));
+  }catch(err){
+    console.error('Error cargando fotos de la galería:', err);
+  }
+  render();
+}
+async function handleGalleryPhotoUpload(){
+  const fileInput = document.getElementById('gallery-file');
+  const statusEl = document.getElementById('gallery-upload-status');
+  const file = fileInput.files[0];
+  if(!file) return;
+  statusEl.textContent = 'Subiendo...';
+  try{
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g,'') || 'jpg';
+    const path = `gallery/${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
+    const res = await fetch(`${SUPABASE_URL}/storage/v1/object/payment-proofs/${path}`, {
+      method:'POST',
+      headers:{ apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': file.type||'image/jpeg' },
+      body: file,
+    });
+    if(!res.ok) throw new Error(await res.text());
+    fileInput.value = '';
+    statusEl.textContent = '';
+    await fetchGalleryPhotos();
+  }catch(err){
+    console.error(err);
+    statusEl.textContent = 'No se pudo subir la foto. Intenta de nuevo.';
+  }
+}
+function deleteGalleryPhotoConfirm(name){
+  openModal(`
+    <h3>¿Eliminar esta foto?</h3>
+    <p class="lede" style="margin-bottom:14px;">Esta acción no se puede deshacer.</p>
+    <div class="stack">
+      <button class="btn btn-danger-line btn-block" onclick="deleteGalleryPhoto('${name}')">Sí, eliminar</button>
+      <button class="btn btn-ghost btn-block" onclick="closeModal()">Cancelar</button>
+    </div>
+  `);
+}
+async function deleteGalleryPhoto(name){
+  closeModal();
+  try{
+    const res = await fetch(`${SUPABASE_URL}/storage/v1/object/payment-proofs/gallery/${name}`, {
+      method:'DELETE',
+      headers:{ apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}` },
+    });
+    if(!res.ok) throw new Error(await res.text());
+    await fetchGalleryPhotos();
+  }catch(err){
+    console.error(err);
+    alert('No se pudo eliminar la foto. Intenta de nuevo.');
+  }
+}
 async function saveProductForm(productId){
   const name = document.getElementById('prod-name').value.trim();
   const price = parseFloat(document.getElementById('prod-price').value);
@@ -2672,7 +2749,7 @@ async function deleteTransaction(id){
 const ADMIN_SECTION_LABELS = {
   eventos:'Eventos', asistencia:'Asistencia', cuenta:'Finanzas', productos:'Productos',
   tienda:'Ventas', taquillas:'Taquillas', multas:'Multas', activos:'Fraternos',
-  interesados:'Interesados', documentos:'Documentos', ajustes:'Ajustes',
+  interesados:'Interesados', documentos:'Documentos', fotos:'Fotos del sitio', ajustes:'Ajustes',
 };
 const FINANCE_SUBTABS = [['cuenta','Cuenta'],['productos','Productos'],['tienda','Ventas'],['taquillas','Taquillas']];
 function goAdminSection(key){ state.adminTab = key; render(); }
@@ -2717,6 +2794,7 @@ function adminHomeCards(){
       ${adminNavCardHtml({key:'activos', icon:'👥', label:'Fraternos', sub:'Roster de activos', value:totalActivos})}
       ${adminNavCardHtml({key:'interesados', icon:'🎯', label:'Interesados', sub:'Formulario de la página pública', value:newProspects, valueColor: newProspects>0?'var(--warning)':'var(--ink)'})}
       ${adminNavCardHtml({key:'documentos', icon:'📄', label:'Documentos', sub:'Reglamento, minutas...', value:DOCS.length})}
+      ${adminNavCardHtml({key:'fotos', icon:'🖼️', label:'Fotos del sitio', sub:'Carrusel de la página pública', value:state.galleryPhotos.length})}
       ${adminNavCardHtml({key:'ajustes', icon:'⚙️', label:'Ajustes', sub:'Contraseña de directiva', value:''})}
     </div>
   `;
@@ -2991,6 +3069,25 @@ function adminTabContent(){
       <button class="btn btn-primary btn-block" onclick="openDocFormModal(null)">+ Nuevo documento</button>
       <div class="card">${rows || `<div class="empty-state">No hay documentos todavía.</div>`}</div>
       <p class="hint-text">Solo fraternos identificados pueden ver esta sección.</p>
+    `;
+  }
+
+  if(state.adminTab==='fotos'){
+    const photos = state.galleryPhotos;
+    return `
+      <div class="field">
+        <label for="gallery-file">Subir foto</label>
+        <input id="gallery-file" type="file" accept="image/*" class="input" onchange="handleGalleryPhotoUpload()">
+        <p id="gallery-upload-status" class="hint-text"></p>
+      </div>
+      <div class="gallery-admin-grid">
+        ${photos.map(p=>`
+          <div class="gallery-admin-item">
+            <img src="${p.url}" alt="">
+            <button class="btn btn-danger-line btn-sm" onclick="deleteGalleryPhotoConfirm('${p.name}')">Eliminar</button>
+          </div>`).join('') || `<div class="empty-state">No hay fotos todavía.</div>`}
+      </div>
+      <p class="hint-text">Estas fotos aparecen en el carrusel de la página pública (index.html). Se ven en el orden de subida, más reciente primero.</p>
     `;
   }
 
