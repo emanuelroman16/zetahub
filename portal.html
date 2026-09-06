@@ -36,6 +36,7 @@
     --cat-cen:#f472b6; --cat-cen-soft:rgba(244,114,182,.16);
     --cat-social:#fb923c; --cat-social-soft:rgba(251,146,60,.16);
     --cat-civica:#2dd4bf; --cat-civica-soft:rgba(45,212,191,.16);
+    --cat-externo:#eab308; --cat-externo-soft:rgba(234,179,8,.16);
     --radius-lg:22px;
     --radius-md:14px;
     --radius-sm:10px;
@@ -534,6 +535,7 @@ const CATS = {
   cen:       {label:'Comité Ejecutivo Central',    color:'--cat-cen',       soft:'--cat-cen-soft'},
   social:    {label:'Social',                      color:'--cat-social',    soft:'--cat-social-soft'},
   civica:    {label:'Servicio Comunitario',         color:'--cat-civica',   soft:'--cat-civica-soft'},
+  externo:   {label:'Otra Asociación',              color:'--cat-externo',  soft:'--cat-externo-soft'},
 };
 
 /* Los eventos, la tienda y los documentos viven en Supabase — se cargan
@@ -817,6 +819,10 @@ function memberVisibleActivities(){ return ACTIVITIES.filter(a=>!isHiddenCategor
 function upcomingActivities(list){ list = list || memberVisibleActivities(); return list.filter(a=>!isPast(a.date)).sort((a,b)=> new Date(a.date)-new Date(b.date)); }
 function pastActivities(list){ list = list || memberVisibleActivities(); return list.filter(a=>isPast(a.date)).sort((a,b)=> new Date(b.date)-new Date(a.date)); }
 function nextActivity(list){ return upcomingActivities(list)[0] || null; }
+/* Los anuncios de "Otra Asociación" son solo informativos — no llevan
+   asistencia ni RSVP, así que se excluyen de cualquier cosa relacionada
+   a tomar asistencia (aunque sí cuentan como evento normal en Eventos). */
+function attendanceRelevantActivities(list){ return (list || ACTIVITIES).filter(a=>a.category!=='externo'); }
 
 function catChip(catKey){
   const c = CATS[catKey] || CATS.general;
@@ -943,7 +949,7 @@ function openIdentifyModal(){
    al identificarse quede claro que puede entrar y cambiar su respuesta
    en vez de sentir que tiene que "empezar de cero". */
 function identifyRsvpHint(m){
-  const next = nextActivity(ACTIVITIES);
+  const next = nextActivity(attendanceRelevantActivities());
   if(!next) return '';
   const status = rsvpStatusFor(next, m.id);
   if(!status) return '';
@@ -1369,8 +1375,9 @@ function openDayEvents(ids){
    Directiva — antes era un <select> nativo, feo y difícil de escanear
    con muchos eventos. Ahora es una tarjeta que abre una lista real. */
 function openAdminActivityPicker(){
-  const upcoming = upcomingActivities(ACTIVITIES);
-  const past = ACTIVITIES.filter(a=>isPast(a.date)).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const relevant = attendanceRelevantActivities();
+  const upcoming = upcomingActivities(relevant);
+  const past = relevant.filter(a=>isPast(a.date)).sort((a,b)=>new Date(b.date)-new Date(a.date));
   const sorted = [...upcoming, ...past];
   openModal(`
     <h3>Elegir actividad</h3>
@@ -1463,7 +1470,7 @@ function viewEvents(){
         ${next.isPublic ? `<span class="chip" style="background:rgba(238,241,245,.14);color:var(--chrome);">Público</span>` : ''}
         ${next.proposed ? `<span class="chip" style="background:rgba(251,191,36,.18);color:#ffd479;">Propuesta</span>` : ''}
       </div>
-      ${me ? `
+      ${(me && next.category!=='externo') ? `
         <div class="rsvp-actions">
           <button class="btn ${myStatus==='voy'?'btn-accent':'btn-ghost'} btn-sm" style="${myStatus==='voy'?'':'background:rgba(238,241,245,.12);color:var(--on-navy);border-color:rgba(238,241,245,.3);'}" onclick="setRsvp('${next.id}','voy')">Voy ✓</button>
           <button class="btn btn-ghost btn-sm" style="background:rgba(238,241,245,.12);color:var(--on-navy);border-color:rgba(238,241,245,.3);" onclick="openExcuseModal('${next.id}')">No voy</button>
@@ -1500,7 +1507,7 @@ function viewEvents(){
       <div class="list-thumb" style="background:${catSoft};color:${catColor};border-color:transparent;">${fmtDateShort(a.date).toUpperCase()}</div>
       <div class="col" style="flex:1;">
         <span class="list-title">${a.title}</span>
-        <span class="list-sub">${CATS[a.category].label} · ${a.place}${a.requiresTicket ? ' · ' + money(a.price) : ''}</span>
+        <span class="list-sub">${CATS[a.category].label} · ${a.place}${a.price>0 ? ' · ' + money(a.price) : ''}</span>
         ${a.proposed ? `<span class="chip chip-warning" style="align-self:flex-start;margin-top:3px;">Propuesta</span>` : ''}
       </div>
       ${chip}
@@ -1588,6 +1595,7 @@ function viewActivityDetail(){
   const status = me ? rsvpStatusFor(a, me) : null;
   const past = isPast(a.date);
   const outcome = (past && me) ? attendanceOutcome(a, me) : null;
+  const isExterno = a.category === 'externo';
 
   const rsvpBlock = past ? `
     <div class="card-flat">
@@ -1630,13 +1638,23 @@ function viewActivityDetail(){
   }) : '';
 
   const ticketBlocks = a.requiresTicket ? (a.isPublic ? ticketBlockGuest + ticketBlockFraterno : ticketBlockFraterno + ticketBlockGuest) : '';
+
+  /* Anuncio de otra asociación: puramente informativo — nunca vende
+     taquilla ni toma RSVP, aunque sí puede mostrar un precio de
+     referencia si la directiva lo puso. */
+  const externoInfoBlock = isExterno ? `
+    <div class="card-flat">
+      ${a.price>0 ? `<p style="margin:0 0 8px;font-size:.92rem;"><strong>Costo:</strong> ${money(a.price)}</p>` : ''}
+      <p class="hint-text" style="margin:0;">Actividad organizada por otra asociación — este es solo un anuncio. No se vende taquilla ni se registra asistencia aquí.</p>
+    </div>` : '';
+
   return `
     <button class="btn btn-ghost btn-sm" style="align-self:flex-start;" onclick="goRoute('events')">← Eventos</button>
     ${eventTicketCardHtml(a)}
     <button class="btn btn-ghost btn-block" onclick="downloadICS('${a.id}')">📅 Agregar a mi calendario</button>
     ${a.desc ? `<p class="lede">${a.desc}</p>` : ''}
-    ${ticketBlocks}
-    ${a.requiresTicket ? '' : rsvpBlock}
+    ${isExterno ? externoInfoBlock : ticketBlocks}
+    ${isExterno ? '' : (a.requiresTicket ? '' : rsvpBlock)}
   `;
 }
 
@@ -1944,17 +1962,18 @@ function openEventFormModal(eventId){
       <div class="field"><label for="ev-datetime">Fecha y hora</label><input id="ev-datetime" type="datetime-local" class="input" value="${dtValue}"></div>
       <div class="field"><label for="ev-place">Lugar</label><input id="ev-place" class="input" value="${editing?editing.place:''}"></div>
       <div class="field"><label for="ev-desc">Descripción</label><textarea id="ev-desc" class="input">${editing?editing.desc:''}</textarea></div>
-      <div class="field"><label for="ev-cat">Categoría</label><select id="ev-cat" class="input">${catOptions}</select></div>
+      <div class="field"><label for="ev-cat">Categoría</label><select id="ev-cat" class="input" onchange="toggleExternoFields()">${catOptions}</select></div>
+      <p id="ev-externo-note" class="hint-text" style="display:none;">Anuncio de otra asociación: solo aparece con su color y, si quieres, un precio de referencia — no vende taquilla ni toma asistencia.</p>
       <div class="row" style="gap:18px;flex-wrap:wrap;">
         <label class="check-row"><input type="checkbox" id="ev-public" ${editing&&editing.isPublic?'checked':''}> Abierto al público</label>
-        <label class="check-row"><input type="checkbox" id="ev-ticket" ${editing&&editing.requiresTicket?'checked':''}> Requiere taquilla</label>
+        <label class="check-row" id="ev-ticket-row"><input type="checkbox" id="ev-ticket" ${editing&&editing.requiresTicket?'checked':''}> Requiere taquilla</label>
       </div>
       <div class="field-row">
-        <div class="field"><label for="ev-price">Precio de taquilla (invitado)</label><input id="ev-price" type="number" min="0" step="0.01" class="input" value="${editing&&editing.price?editing.price:''}"></div>
-        <div class="field"><label for="ev-activo-price">Precio activo</label><input id="ev-activo-price" type="number" min="0" step="0.01" class="input" placeholder="Auto −15%" value="${editing&&editing.activoPrice!=null?editing.activoPrice:''}"></div>
+        <div class="field"><label for="ev-price" id="ev-price-label">Precio de taquilla (invitado)</label><input id="ev-price" type="number" min="0" step="0.01" class="input" value="${editing&&editing.price?editing.price:''}"></div>
+        <div class="field" id="ev-activo-price-field"><label for="ev-activo-price">Precio activo</label><input id="ev-activo-price" type="number" min="0" step="0.01" class="input" placeholder="Auto −15%" value="${editing&&editing.activoPrice!=null?editing.activoPrice:''}"></div>
       </div>
-      <p class="hint-text" style="margin-top:-4px;">Deja "Precio activo" en blanco para que siga siendo automático (15% menos). Solo aplica si no agregas precios variables abajo.</p>
-      <div class="field">
+      <p class="hint-text" style="margin-top:-4px;" id="ev-activo-price-hint">Deja "Precio activo" en blanco para que siga siendo automático (15% menos). Solo aplica si no agregas precios variables abajo.</p>
+      <div class="field" id="ev-tiers-field">
         <label>Precios variables (opcional)</label>
         <p class="hint-text" style="margin:0 0 8px;">Si agregas categorías (Damas, Militantes, Activo del Zeta, etc.), el comprador elige una al pagar y ese precio manda — no se usan los precios de arriba. Si no agregas ninguna, se usa el precio único de arriba (con el precio de activo definido o el 15% automático).</p>
         <div id="ev-tiers-list"></div>
@@ -1967,6 +1986,20 @@ function openEventFormModal(eventId){
     </div>
   `);
   renderTierRows();
+  toggleExternoFields();
+}
+/* Los anuncios de otra asociación no venden taquilla ni tienen precios
+   variables — se ocultan esos campos en vez de dejarlos ahí sin sentido,
+   y el precio único de arriba pasa a ser solo informativo. */
+function toggleExternoFields(){
+  const isExterno = document.getElementById('ev-cat').value === 'externo';
+  document.getElementById('ev-externo-note').style.display = isExterno ? 'block' : 'none';
+  document.getElementById('ev-ticket-row').style.display = isExterno ? 'none' : '';
+  document.getElementById('ev-activo-price-field').style.display = isExterno ? 'none' : '';
+  document.getElementById('ev-activo-price-hint').style.display = isExterno ? 'none' : '';
+  document.getElementById('ev-tiers-field').style.display = isExterno ? 'none' : '';
+  document.getElementById('ev-price-label').textContent = isExterno ? 'Precio (opcional, informativo)' : 'Precio de taquilla (invitado)';
+  if(isExterno) document.getElementById('ev-ticket').checked = false;
 }
 async function saveEventForm(eventId){
   const title = document.getElementById('ev-title').value.trim();
@@ -1974,10 +2007,11 @@ async function saveEventForm(eventId){
   const place = document.getElementById('ev-place').value.trim();
   const desc = document.getElementById('ev-desc').value.trim();
   const category = document.getElementById('ev-cat').value;
+  const isExterno = category === 'externo';
   const isPublic = document.getElementById('ev-public').checked;
-  const requiresTicket = document.getElementById('ev-ticket').checked;
+  const requiresTicket = isExterno ? false : document.getElementById('ev-ticket').checked;
   const price = parseFloat(document.getElementById('ev-price').value) || 0;
-  const activoPriceRaw = document.getElementById('ev-activo-price').value.trim();
+  const activoPriceRaw = isExterno ? '' : document.getElementById('ev-activo-price').value.trim();
   const errEl = document.getElementById('ev-error');
   if(!title || !dt || !place){ errEl.textContent='Completa título, fecha y lugar.'; errEl.style.display='block'; return; }
   if(activoPriceRaw && (isNaN(parseFloat(activoPriceRaw)) || parseFloat(activoPriceRaw)<0)){ errEl.textContent='El precio de activo no es válido.'; errEl.style.display='block'; return; }
@@ -1985,7 +2019,10 @@ async function saveEventForm(eventId){
      escribe en hora de Puerto Rico (UTC-4, sin horario de verano), así
      que se fija ese offset explícito al construir el instante UTC real. */
   const isoDate = dt.length===16 ? dt+':00-04:00' : dt;
-  const ticketTiers = eventFormTiers.filter(t=>t.label && t.label.trim());
+  /* Un anuncio de otra asociación nunca vende taquilla, así que se
+     ignoran los precios variables aunque hayan quedado cargados de una
+     categoría anterior — solo cuenta el precio único como referencia. */
+  const ticketTiers = isExterno ? [] : eventFormTiers.filter(t=>t.label && t.label.trim());
   const payload = {
     title, date:isoDate, location:place, description:desc, category,
     is_public:isPublic, requires_ticket:requiresTicket, price,
@@ -2780,7 +2817,7 @@ function adminNavCardHtml(opts){
 }
 function adminHomeCards(){
   const totalActivos = MEMBERS.length;
-  const next = nextActivity(ACTIVITIES);
+  const next = nextActivity(attendanceRelevantActivities());
   const confirmedNext = next ? MEMBERS.filter(m=>rsvpStatusFor(next, m.id)==='voy').length : 0;
   const pendingFines = allFines().filter(f=>!f.paid).length;
   const balance = state.transactions.reduce((s,t)=> s + (t.type==='ingreso'?t.amount:-t.amount), 0);
@@ -2847,7 +2884,7 @@ function adminTabContent(){
         <span class="cat-dot" style="background:var(${CATS[a.category].color});flex-shrink:0;"></span>
         <div class="col" style="flex:1;">
           <span class="list-title">${a.title}${a.proposed ? ' <span class="chip chip-warning" style="vertical-align:middle;margin-left:4px;">Propuesta</span>' : ''}</span>
-          <span class="list-sub">${fmtDateShort(a.date)} · ${CATS[a.category].label}${a.isPublic?' · Público':''}${a.requiresTicket?' · '+money(a.price):''}</span>
+          <span class="list-sub">${fmtDateShort(a.date)} · ${CATS[a.category].label}${a.isPublic?' · Público':''}${a.price>0?' · '+money(a.price):''}</span>
         </div>
         <div class="row" style="gap:6px;flex-shrink:0;">
           ${a.proposed ? `<button class="btn btn-ghost btn-sm" onclick="confirmEventProposal('${a.id}')">Confirmar</button>` : ''}
@@ -2862,9 +2899,10 @@ function adminTabContent(){
   }
 
   if(state.adminTab==='asistencia'){
-    if(!ACTIVITIES.length) return `<div class="empty-state">No hay eventos todavía.</div>`;
-    const mostRecent = ACTIVITIES.slice().sort((a,b)=>new Date(b.date)-new Date(a.date))[0];
-    const act = byId(ACTIVITIES, state.adminActivity) || nextActivity(ACTIVITIES) || mostRecent;
+    const relevant = attendanceRelevantActivities();
+    if(!relevant.length) return `<div class="empty-state">No hay eventos todavía.</div>`;
+    const mostRecent = relevant.slice().sort((a,b)=>new Date(b.date)-new Date(a.date))[0];
+    const act = byId(relevant, state.adminActivity) || nextActivity(relevant) || mostRecent;
     const past = isPast(act.date);
     const picker = `
       <div class="card-flat" style="cursor:pointer;" onclick="openAdminActivityPicker()">
